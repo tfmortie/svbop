@@ -6,8 +6,6 @@
 
 * The random hierarchy generator code by Melnikov et al., can be found under **/models/nd/**.
 
-* A pre-trained HNet and FNet model on VOC2006 can be found under **/trained_models/**.
-
 * Current implementation of the hierarchical neural network HNet is not an exact hierarchical softmax implementation, but rather a tree-based neural network which is fully trained by backpropagation (AutoGrad).
 
 * HNet is implemented in **/models/hclassifier.py**, which contains the code for the hierarchical probabilistic neural network model, as well as the RBOP
