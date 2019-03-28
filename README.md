@@ -2,7 +2,7 @@
 
 ## Getting started
 
-* Make sure to download VOC2006 images (example dataset) and place in **/data/PNGImages**.
+* Make sure to download VOC2006 images (example dataset) and place under **/data/PNGImages**.
 
 * The random hierarchy generator code by Melnikov et al., can be found under **/models/nd/**.
 
