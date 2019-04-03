@@ -1,7 +1,13 @@
+"""
+Flat MC classifier code for image data
+By Thomas Mortier
+"""
+
 import torch
 torch.manual_seed(2019)
 import math
 import sys
+import time
 
 import torch.nn.functional as F
 import torch.nn as nn
@@ -12,7 +18,9 @@ import torchvision.models as models
 from torch.autograd import Variable
 from sklearn.metrics import accuracy_score
 
-# function which calculates accuracy of predictions
+"""
+Function which calculates accuracy of predictions
+"""
 def calculate_accuracy(outputs, labels):
     # transform labels and outputs
     if isinstance(outputs,torch.Tensor):
@@ -47,12 +55,14 @@ class FNet(nn.Module):
         self.m = num_classes
         # classifier
         self.classifier = nn.Sequential(
-            nn.Dropout(p=0.25, inplace=True),
+            nn.Dropout(p=0.25),
             nn.Linear(in_features=self.in_features, out_features=self.m),
             nn.Softmax(dim=1)
         )
         
-     # forward pass function of FNet
+    """
+    Forward pass function of FNet
+    """
     def forward(self, x):
         return self.classifier(x)
         
@@ -168,6 +178,7 @@ class FMCC(nn.Module):
         if verbose:
             print(self)
         print(get_num_learnable_params(self))
+        
         # loss function
         criterion = nn.BCELoss()
 
@@ -182,6 +193,7 @@ class FMCC(nn.Module):
         for epoch in range(ne):  # loop over the dataset multiple times
             train_running_loss = 0.0
             train_part_running_loss = 0.0
+            train_time = 0.0
             val_running_loss = 0.0
             val_acc = 0.0
 
@@ -197,11 +209,12 @@ class FMCC(nn.Module):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
+                start_time = time.time()
                 outputs = self(inputs)
-
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
+                train_time += time.time()-start_time
 
                 # print statistics
                 train_part_running_loss += loss.item()
@@ -217,18 +230,14 @@ class FMCC(nn.Module):
 
                 inputs, labels = data
                 inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype))
-                outputs = self(inputs)
-                
-                #inf_preds = self.fnet.predict(self.features(inputs).view(-1,self.ft_size),"eloss",[1,1],early_stop=True)
-                #print(inf_preds)
-                
+                outputs = self(inputs)                
                 loss = criterion(outputs, labels)
 
                 # print statistics
                 val_running_loss += loss.item()
                 val_acc += calculate_accuracy(self(inputs), labels)
                 counter_val += 1
-            print("EPOCH {0}: lossTr={1:.3f}   lossVal={2:.3f}   accVal={3:.3f}".format(epoch+1,train_running_loss/counter_train,val_running_loss/counter_val,val_acc/counter_val))
+            print("EPOCH {0}: lossTr={1:.3f}   timeTr={2:.4f}   lossVal={3:.3f}   accVal={4:.3f}".format(epoch+1,train_running_loss/counter_train,train_time/counter_train,val_running_loss/counter_val,val_acc/counter_val))
             self.save_state("inter_models/{0}/FLAT_MCC_{1}_{2}".format(self.dataset,lr,epoch+1))
 
             # check if early stopping applies

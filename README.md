@@ -4,14 +4,10 @@
 
 * Make sure to download VOC2006 images (example dataset) and place in **/data/PNGImages**.
 
-* The random hierarchy generator code by Melnikov et al., can be found under **/models/nd/**.
-
 * A pre-trained HNet and FNet model on VOC2006 can be found under **/trained_models/**.
 
-* Current implementation of the hierarchical neural network HNet is not an exact hierarchical softmax implementation, but rather a tree-based neural network which is fully trained by backpropagation (AutoGrad).
-
 * HNet is implemented in **/models/hclassifier.py**, which contains the code for the hierarchical probabilistic neural network model, as well as the RBOP
-inference algorithm.
+inference algorithm. Note that the hierarchical softmax layer is not (yet) optimized for mini-batch training. However, in extreme multi-class settings this becomes neglectible.
 
 * FNet is implemented in **/models/fclassifier.py**, which contains the 
 code for the flat probabilistic neural network model, as well as the UBOP 
@@ -30,6 +26,15 @@ CUDA_VISIBLE_DEVICES=0 python3 -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m 
 
 CUDA_VISIBLE_DEVICES=0 python3 -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m flat --gpu --vgg --no-ft 
 ```
+
+For HNet, you can also train on, e.g. $k=10$, random generated structure as follows:
+
+```
+export CUDA_VISIBLE_DEVICES=0 # use GPU
+
+CUDA_VISIBLE_DEVICES=0 python3 -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m hierarchical -k 10 --learns --gpu --vgg --no-ft 
+```
+
 
 ### Testing HNet and FNet
 

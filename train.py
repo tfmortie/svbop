@@ -1,7 +1,13 @@
+"""
+Train code for image data
+By Thomas Mortier
+"""
+
 import argparse
 import sys
 import linecache
 import torch
+torch.manual_seed(2019)
 import ast
 import csv
 
@@ -114,7 +120,7 @@ def main_hierarchical(pathcsv,struct,learns,k,valsize,shuffle,ne,lr,bs,pat,ft,vg
             struct = ast.literal_eval(struct)
         else:
             treegen = tg.TreeGenerator(num_classes)
-            struct = treegen.sample_tree(seed=k_i)
+            struct = treegen.GenerateHierarchy(m_s=1)
 
         num_nodes = len(struct)
         indices = list(range(num_samples))

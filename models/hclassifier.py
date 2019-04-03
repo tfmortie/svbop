@@ -1,21 +1,30 @@
+"""
+Hierarchical MC classifier code for image data
+By Thomas Mortier
+"""
+
 import torch
 torch.manual_seed(2019)
 import math
 import sys
 import csv
 import heapq
+import time
 
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
 import torch.optim as optim
 import torchvision.models as models
+import torch.nn.init as init
 
 from torch.autograd import Variable
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
 
-# priority queue's needed for the RBOP inference algorithm
+"""
+Priority queue needed for the RBOP inference algorithm
+"""
 class PriorityList():
     def __init__(self):
         self.list = []
@@ -37,19 +46,19 @@ class PriorityList():
 
     def __repr__(self):
         return str(self.list)
-    
-# function which calculates accuracy of predictions
+
+"""
+Function which calculates accuracy of predictions
+"""
 def calculate_accuracy(outputs, labels):
     # transform labels and outputs
-    if isinstance(outputs,torch.Tensor):
+    if isinstance(labels,torch.Tensor):
         labels_n = labels.cpu().data.numpy()
-        outputs_n = outputs.cpu().data.numpy()
     else:
         labels_n = labels
-        outputs_n = outputs
-
+        
     # calculate accuracy
-    acc = accuracy_score(np.argmax(labels_n, axis=1), np.argmax(outputs_n, axis=1))
+    acc = accuracy_score(np.argmax(labels_n, axis=1)+1, outputs)
 
     return acc
     
@@ -69,38 +78,26 @@ class HNode(nn.Module):
         self.chn = nn.ModuleList()
         self.classifier = None  # contains a node classifier (only for internal nodes)
         self.do_node = do_node # dropout probability to be applied in each node 
-
-    # function which (recursively) adds a child node
-    def add_child_node(self, y):
-        # check if leaf or internal node
-        if len(self.chn) > 0:
-            ind = [i for i, j in enumerate(self.chn) if set(y).issubset(set(j.y))]
-            # check if y is a subset of one of the children
-            if len(ind) > 0:
-                self.chn[ind[0]].add_child_node(y)
-            else:
-                self.chn.append(HNode(y, self.in_features))
-                self.classifier = nn.Sequential(
-                    nn.Dropout(p=self.do_node, inplace=True),
-                    nn.Linear(self.in_features+1, len(self.chn)),
-                    nn.Softmax(dim=1)
-                )
-        else:
-            self.chn.append(HNode(y, self.in_features))
-            self.classifier = nn.Sequential(
-                nn.Dropout(p=self.do_node, inplace=True),
-                nn.Linear(self.in_features+1, 1),
-                nn.Softmax(dim=1)
-            )
-
-    # forward pass function of node (an internal node will just forward the incoming probability)
-    def forward(self, x, p):
-        if len(self.chn) == 0:
-            return p.view(-1, 1)
-        else:
-            return self.classifier(torch.cat((x, p.view(-1, 1)), 1))
+        
+    """
+    Needed for HNet's insertHNode function to update its classifier object when a child
+    has been added
+    """
+    def update_classifier(self):
+        self.classifier = nn.Sequential(
+            nn.Linear(self.in_features, len(self.chn)),
+            nn.Softmax(dim=1)
+        )
     
-    # need this function when storing HNodes in heapq
+    """
+    Forward pass function of (internal) node classifier
+    """
+    def forward(self, x):
+        return self.classifier(x)
+    
+    """
+    Comparator needed in case of equal keys in queue (key=prob)
+    """
     def __lt__(self, other):
         return len(self.y) < len(other.y)
 
@@ -111,8 +108,9 @@ with the RBOP algorithm, as implemented in predict.
 class HNet(nn.Module):
     def __init__(self, in_features, struct, dtype, do_node = 0.25):
         super(HNet, self).__init__()
-        # store size of incoming feature vector
+        # store size of incoming feature vector and dropbout prob for each node
         self.in_features = in_features
+        self.n_do = do_node
         # structure of hierarchy (BFS)
         self.struct = deepcopy(struct)
         # dtype of tensors
@@ -122,52 +120,54 @@ class HNet(nn.Module):
         # store dropout for each node
         self.do_node = do_node
         # root classifier
-        self.root = HNode(struct.pop(0), self.in_features, self.do_node)
-        # recursively construct the hierarchical tree classifier
-        while (len(struct) > 0):
-            self.root.add_child_node(struct.pop(0))
-
-    # forward pass function of HNet (full: whether edge or posterior probabilities need to be returned)
-    def forward(self, x, full=False):
-        probs = []  # contains either edge probabilities or recursive path probabilities
-        final_probs = [None]*self.m
-
-        # define queue's
-        children_to_visit = []
-        probs_to_pass = []
-
-        # obtain outgoing edge probabilities of root
-        one_v = torch.ones(x.shape[0], 1).type(self.dtype)
-        p = self.root(x, one_v)
-        probs.extend([p[:, i] for i in range(p.shape[1])])
-        probs_to_pass.extend([p[:, i] for i in range(p.shape[1])])
-        children_to_visit.extend(self.root.chn)
-
-        # visit the whole tree
-        while (len(children_to_visit) != 0):
-            parent_prob_e = probs_to_pass.pop(0)
-            node = children_to_visit.pop(0)
-            p = node(x, parent_prob_e)
-            if len(node.chn) != 0:
-                if not full:
-                    parent_prob = probs.pop(0)
-
-                probs_to_pass.extend([p[:, i] for i in range(p.shape[1])])
-                children_to_visit.extend(node.chn)
-                # add edge probabilities or recursive probabilities (i.e. necessary for posterior probabilities)
-                if full:
-                    probs.extend([p[:, i] for i in range(p.shape[1])])
-                else:
-                    probs.extend([parent_prob * p[:, i] for i in range(p.shape[1])])
-            else:
-                if not full:
-                    final_probs[node.y[0]-1] = probs.pop(0)
-
-        if full:
-            return torch.cat([p.view(-1, 1) for p in probs], 1)
-        else:
-            return torch.cat([p.view(-1, 1) for p in final_probs], 1)
+        root = None
+        visit_list = []
+        for y in self.struct:
+            root = self.insertHNode(root, y, visit_list)
+        self.root = root
+        # now create dict with paths to each leaf
+        self.class_dict = self.get_class_dict()
         
+    """
+    Inserts a HNode in HNet non-recursively
+    """
+    def insertHNode(self,root,y,visit_list):
+        node = HNode(y, self.in_features, self.n_do)
+        if root is None:
+            root = node
+        elif len(visit_list[0].chn) == 0:
+            visit_list[0].chn.append(node)
+            visit_list[0].update_classifier()
+        else:
+            total_len_y_ch = sum([len(c.y) for c in visit_list[0].chn]) + len(node.y)
+            if total_len_y_ch == len(visit_list[0].y):
+                visit_list[0].chn.append(node)
+                visit_list[0].update_classifier()
+                _ = visit_list.pop(0)
+            else:
+                visit_list[0].chn.append(node)
+                visit_list[0].update_classifier()
+        if len(node.y) > 1:
+            visit_list.append(node)
+        return root 
+    
+    """
+    Returns a dict which maps a class to a path description in the hierarchy (needed for the forward pass of HNet)
+    """
+    def get_class_dict(self):
+        c_d = {}
+        for y in range(1,self.m+1):
+            ind_path = []
+            node_to_visit = self.root
+            while(len(node_to_visit.y)!=1):
+                for i,c in enumerate(node_to_visit.chn):
+                    if y in set(c.y):
+                        ind_path.append(i)
+                        node_to_visit = c
+                        break
+            c_d[y] = ind_path
+        return c_d
+
     def EU(self, y, py, loss, params):
         if loss == "eloss":
             return (1-params[0]*(((len(y)-1)/(self.m-1))**params[1])) * py
@@ -181,6 +181,37 @@ class HNet(nn.Module):
             return (((params[0])/(len(y)))-((params[1])/(len(y)**2))) * py
         else:
             return "NOT IMPLEMENTED YET!"
+        
+    """
+    forward pass of HNet
+    """
+    def forward(self, x, l=None, train=True):
+        if train:
+            batch_losses = list(map(self._train,x,l))
+            return batch_losses
+        else:
+            return list(map(self._argmax,x))
+        
+    def _argmax(self, x):
+        node = self.root
+        # peform argmax starting from root downwards to the leafs
+        while(len(node.chn) != 0):
+            p_argmax =np.argmax(node(x.unsqueeze(0)).cpu().data.numpy())
+            node = node.chn[p_argmax]
+        # now obtain class
+        return node.y[0]
+    
+    def _train(self, x, l):
+        crit = nn.BCELoss()
+        c_ind = self.class_dict[l]
+        node = self.root
+        path_loss = []
+        for n_ind in c_ind:
+            size = len(node.chn)
+            oh_sel = Variable(torch.eye(size)[n_ind,:].unsqueeze(0).type(self.dtype), requires_grad=False)
+            path_loss.append(crit(node(x.unsqueeze(0)), oh_sel))
+            node = node.chn[n_ind]
+        return torch.sum(torch.stack(path_loss))
     
     """
     RBOP
@@ -267,6 +298,7 @@ class HMCC(nn.Module):
                 *list(models.vgg16_bn(pretrained=True).features.children())
             )
             self.ft_size = 25088
+            #self.ft_size = 128
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -295,10 +327,10 @@ class HMCC(nn.Module):
         # hierarchical tree classifier part
         self.hnet = HNet(self.ft_size, deepcopy(struct), dtype=self.dtype)
 
-    def forward(self, x, full=False):
+    def forward(self, x, l=None, train=True):
         x = self.features(x)
         x = x.view(-1, self.ft_size)
-        x = self.hnet(x, full)
+        x = self.hnet(x, l=l, train=train)
 
         return x
 
@@ -311,9 +343,6 @@ class HMCC(nn.Module):
         if verbose:
             print(self)
         print(get_num_learnable_params(self))
-        
-        # loss function
-        criterion = nn.BCELoss()
 
         if not ft:
             optimizer = optim.Adam(self.hnet.parameters(), lr=lr)
@@ -325,6 +354,7 @@ class HMCC(nn.Module):
         patience_cnt = 0
         for epoch in range(ne):  # loop over the dataset multiple times
             train_running_loss = 0.0
+            train_time = 0.0
             val_running_loss = 0.0
             val_acc = 0.0
 
@@ -333,16 +363,25 @@ class HMCC(nn.Module):
             for i, data in enumerate(self.trdl, 0):
                 inputs, labels = data
                 inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype), requires_grad=False)
-
+                
+                # obtain "plain" targets
+                targets = labels.cpu().data.numpy()
+                targs_to_class = np.argmax(targets,axis=1)
+                targs_to_list = [c+1 for c in targs_to_class]
+                
                 # set model to training mode
                 self.train()
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                outputs = self(inputs)
-                loss = criterion(outputs, labels)
+                
+                # obtain loss, and do backprop
+                start_time = time.time()
+                losses = self(inputs,targs_to_list)
+                loss = torch.mean(torch.stack(losses))
                 loss.backward()
                 optimizer.step()
+                train_time += time.time()-start_time
 
                 # print statistics
                 train_running_loss += loss.item()
@@ -357,29 +396,20 @@ class HMCC(nn.Module):
 
                 inputs, labels = data
                 inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype))
-                outputs = self(inputs)
                 
-                # also obtain full predictions and targets
-                probabilities = self(inputs, full=True).cpu().data.numpy()
-                #inf_preds = self.hnet.predict(self.features(inputs).view(-1,self.ft_size),"eloss",[1,1],0.)
-                #print(inf_preds)
-   
-                # add additional 1
-                probabilities = np.hstack((np.ones((probabilities.shape[0],1)),probabilities))
+                # obtain "plain" targets
                 targets = labels.cpu().data.numpy()
                 targs_to_class = np.argmax(targets,axis=1)
-                targs_to_list = [[c+1] for c in targs_to_class]
+                targs_to_list = [c+1 for c in targs_to_class]
                 
-                # get number of classes
-                m = targets.shape[1]
-                # get loss
-                loss = criterion(outputs, labels)
-
-                # print statistics
+                # calculate losses and accuracy
+                losses = self(inputs,targs_to_list)
+                loss = torch.mean(torch.stack(losses))
                 val_running_loss += loss.item()
-                val_acc += calculate_accuracy(self(inputs), labels)
+                val_acc += calculate_accuracy(self(inputs,train=False), labels)
+
                 counter_val += 1
-            print("EPOCH {0}: lossTr={1:.3f}    lossVal={2:.3f}    accVal={3:.3f}".format(epoch + 1, train_running_loss/counter_train, val_running_loss/counter_val, val_acc/counter_val))
+            print("EPOCH {0}: lossTr={1:.3f}    timeTr={2:4f}    lossVal={3:.3f}    accVal={4:.3f}".format(epoch + 1, train_running_loss/counter_train, train_time/counter_train, val_running_loss/counter_val, val_acc/counter_val))
             self.save_state("inter_models/{0}/HIERARCHICAL_MCC_{1}_{2}".format(self.dataset,lr,epoch+1))
 
             # check if early stopping applies
