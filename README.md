@@ -2,14 +2,14 @@
 
 ## Getting started
 
-* Make sure to download VOC2006 images (example dataset) and place in **/data/PNGImages**.
+* Make sure to download VOC2006 images (example dataset) and place under */data/PNGImages*.
 
 * A pre-trained HNet and FNet model on VOC2006 can be found under **/trained_models/**.
 
 * HNet is implemented in **/models/hclassifier.py**, which contains the code for the hierarchical probabilistic neural network model, as well as the RBOP
 inference algorithm. Note that the hierarchical softmax layer is not (yet) optimized for mini-batch training. However, in extreme multi-class settings this becomes neglectible.
 
-* FNet is implemented in **/models/fclassifier.py**, which contains the 
+* FNet is implemented in */models/fclassifier.py*, which contains the 
 code for the flat probabilistic neural network model, as well as the UBOP 
 inference algorithm.
 
@@ -48,4 +48,4 @@ CUDA_VISIBLE_DEVICES=0 python3 -u test.py -m flat -pm ./FLAT_MCC_TRAIN_0.2_True_
 CUDA_VISIBLE_DEVICES=0 python3 -u test.py -m hierarchical -pm ./HIERARCHICAL_MCC_TRAIN_0.2_True_100_0.001_32_5_False_True_VOC2006_19_False_0_VOC2006.pt -pcsv ./data/VOC2006/TEST.csv -s $( cat ./data/VOC2006/hierarchy_full.txt ) --gpu --vgg --store 
 ```
 
-*Important*: make sure to first train HNet and FNet before testing, as trained models need to be provided. After training, trained models are automatically saved to the working directory. 
+**Important**: make sure to first train HNet and FNet before testing, as trained models need to be provided. After training, trained models are automatically saved to the working directory. 
