@@ -27,7 +27,7 @@ CUDA_VISIBLE_DEVICES=0 python3 -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m 
 CUDA_VISIBLE_DEVICES=0 python3 -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m flat --gpu --vgg --no-ft 
 ```
 
-For HNet, you can also train on, e.g. $k=10$, random generated structure as follows:
+For HNet, you can also train on, e.g. k=10, random generated structure as follows:
 
 ```
 export CUDA_VISIBLE_DEVICES=0 # use GPU
