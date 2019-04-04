@@ -125,8 +125,6 @@ class HNet(nn.Module):
         for y in self.struct:
             root = self.insertHNode(root, y, visit_list)
         self.root = root
-        # now create dict with paths to each leaf
-        self.class_dict = self.get_class_dict()
         
     """
     Inserts a HNode in HNet non-recursively
@@ -151,23 +149,6 @@ class HNet(nn.Module):
             visit_list.append(node)
         return root 
     
-    """
-    Returns a dict which maps a class to a path description in the hierarchy (needed for the forward pass of HNet)
-    """
-    def get_class_dict(self):
-        c_d = {}
-        for y in range(1,self.m+1):
-            ind_path = []
-            node_to_visit = self.root
-            while(len(node_to_visit.y)!=1):
-                for i,c in enumerate(node_to_visit.chn):
-                    if y in set(c.y):
-                        ind_path.append(i)
-                        node_to_visit = c
-                        break
-            c_d[y] = ind_path
-        return c_d
-
     def EU(self, y, py, loss, params):
         if loss == "eloss":
             return (1-params[0]*(((len(y)-1)/(self.m-1))**params[1])) * py
@@ -203,16 +184,16 @@ class HNet(nn.Module):
     
     def _train(self, x, l):
         crit = nn.BCELoss()
-        c_ind = self.class_dict[l]
         node = self.root
         path_loss = []
-        for n_ind in c_ind:
+        while len(node.chn) != 0:
+            n_ind = [i for i, j in enumerate(node.chn) if set([l]).issubset(set(j.y))][0]
             size = len(node.chn)
-            oh_sel = Variable(torch.eye(size)[n_ind,:].unsqueeze(0).type(self.dtype), requires_grad=False)
-            path_loss.append(crit(node(x.unsqueeze(0)), oh_sel))
+            oh_sel = Variable(torch.eye(size)[n_ind,:].type(self.dtype), requires_grad=False)
+            path_loss.append(crit(node(x.unsqueeze(0)), oh_sel.unsqueeze(0)))
             node = node.chn[n_ind]
         return torch.sum(torch.stack(path_loss))
-    
+      
     """
     RBOP
     note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
