@@ -103,6 +103,13 @@ class HNode(nn.Module):
                     )
         else:
             self.chn.append(HNode(y, self.in_features))
+            tot_len_y_chn = sum([len(c.y) for c in self.chn])
+            if tot_len_y_chn == len(self.y):
+                self.classifier = nn.Sequential(
+                    nn.Dropout(p=self.do_node),
+                    nn.Linear(self.in_features, len(self.chn)),
+                    nn.Softmax(dim=1)
+                )
     
     """
     Forward pass function of (internal) node classifier
@@ -341,7 +348,6 @@ class HMCC(nn.Module):
             out_embedding = self.embedding(torch.randn(32,26,4911).type(self.dtype))
             out_scale_cnn = []
             for cls in self.ft_scale_cnn:
-                print(cls(out_embedding).shape)
                 out_scale_cnn.append(cls(out_embedding))
             out_scale_cnn = torch.cat(out_scale_cnn,1)
             out_scale_cnn = out_scale_cnn.transpose(1,2)
