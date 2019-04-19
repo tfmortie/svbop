@@ -1,5 +1,5 @@
 """
-Flat MC classifier code for image data
+Flat MC classifier code
 By Thomas Mortier
 """
 
@@ -55,7 +55,7 @@ class FNet(nn.Module):
         self.m = num_classes
         # classifier
         self.classifier = nn.Sequential(
-            nn.Dropout(p=0.25),
+            #nn.Dropout(p=0.25),
             nn.Linear(in_features=self.in_features, out_features=self.m),
             nn.Softmax(dim=1)
         )
@@ -80,11 +80,20 @@ class FNet(nn.Module):
         else:
             return "NOT IMPLEMENTED YET!"
     
+    def checkstop(self, y, loss, params):
+        if self.dtype == torch.cuda.FloatTensor:
+            y_l = list(y.cpu().numpy())
+        else:
+            y_l = list(y.numpy())
+        l = self.EU(y_l,1,loss,params)/(self.EU(y_l,1,loss,params)-self.EU(y_l+[0],1,loss,params))
+        r = self.EU(y_l+[0,0],1,loss,params)/(self.EU(y_l+[0],1,loss,params)-self.EU(y_l+[0,0],1,loss,params))
+        return l >= r
+    
     """
     UBOP
     note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
     """
-    def predict(self, x, loss, params):
+    def predict(self, x, loss, params, early_stop=False):
         pred_list = []
         EU_list = []
         for x_i in range(x.shape[0]):
@@ -102,6 +111,8 @@ class FNet(nn.Module):
                 if EU_best < EU:
                     EU_best = EU
                     y_best = y
+                elif early_stop and self.checkstop(y,loss,params):
+                    break
             if self.dtype == torch.cuda.FloatTensor:
                 pred_list.append(list(y_best.cpu().numpy()))
             else:
@@ -110,7 +121,7 @@ class FNet(nn.Module):
         return pred_list, EU_list
 
 """
-Flat softmax neural network for image data
+Flat softmax neural network 
 """
 class FMCC(nn.Module):
     def __init__(self,m,gpu,patience,vgg,ds,trdl=None,vldl=None):
@@ -135,6 +146,46 @@ class FMCC(nn.Module):
                 *list(models.vgg16_bn(pretrained=True).features.children())
             )
             self.ft_size = 25088
+        elif "PROTEIN" in ds:
+            self.embedding = nn.Conv1d(26,8,1)
+            self.ft_scale_cnn = nn.ModuleList([])
+            for scale in [3,5,7,9,11]:
+                self.ft_scale_cnn.append(nn.Sequential(
+                    nn.Conv1d(8,16,scale,padding=(scale-1)//2),
+                    nn.Conv1d(16,32,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(32),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2,3),
+                    nn.Conv1d(32,64,scale,padding=(scale-1)//2),
+                    nn.Conv1d(64,128,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2,3),
+                    nn.Conv1d(128,256,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2),
+                ))
+            if gpu:
+                self.embedding.cuda()
+                self.ft_scale_cnn.cuda()
+            out_embedding = self.embedding(torch.randn(32,26,4911).type(self.dtype))
+            out_scale_cnn = []
+            for cls in self.ft_scale_cnn:
+                print(cls(out_embedding).shape)
+                out_scale_cnn.append(cls(out_embedding))
+            out_scale_cnn = torch.cat(out_scale_cnn,1)
+            out_scale_cnn = out_scale_cnn.transpose(1,2)
+            self.ft_size_scale_cnn = out_scale_cnn.shape
+            print("SCALE CNN SHAPE = {0}".format(self.ft_size_scale_cnn))
+            self.rnn = nn.LSTM(self.ft_size_scale_cnn[2], 128, 1, batch_first=True)
+            if gpu:
+                self.rnn.cuda()
+            out_rnn = self.rnn(out_scale_cnn)[0]
+            out_rnn = out_rnn.transpose(1,2)
+            self.ft_size_rnn = out_rnn.shape
+            print("SCALE RNN SHAPE = {0}".format(self.ft_size_rnn))
+            self.ft_size = self.ft_size_rnn[1]*self.ft_size_rnn[2]
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -164,16 +215,32 @@ class FMCC(nn.Module):
         self.fnet = FNet(self.ft_size, self.nclass, self.dtype)
 
     def forward(self,x):
-        x = self.features(x)
-        x = x.view(-1,self.ft_size)
-        x = self.fnet(x)
-        return x
+        if "PROTEIN" in self.dataset:
+            x = self.embedding(x)
+            x_scale_cnn = []
+            for cls in self.ft_scale_cnn:
+                x_scale_cnn.append(cls(x))
+            x_scale_cnn = torch.cat(x_scale_cnn,1)
+            x_scale_cnn = x_scale_cnn.transpose(1,2)
+            x_rnn = self.rnn(x_scale_cnn)[0]
+            x_rnn = x_rnn.transpose(1,2)
+            if not x_rnn.is_contiguous():
+                x_rnn = x_rnn.contiguous()
+            x = x_rnn.view(-1,self.ft_size)
+            x = self.fnet(x)
+            return x
+        else:
+            x = self.features(x)
+            x = x.view(-1,self.ft_size)
+            x = self.fnet(x)
+            return x
 
     def train_model(self,ne,lr,ft=False,verbose=True):
         # fix weights of convnet
-        for p in self.features.parameters():
-            p.requires_grad = ft
-
+        if "PROTEIN" not in self.dataset:
+            for p in self.features.parameters():
+                p.requires_grad = ft
+    
         # print model
         if verbose:
             print(self)
@@ -183,7 +250,10 @@ class FMCC(nn.Module):
         criterion = nn.BCELoss()
 
         if not ft:
-            optimizer = optim.Adam(self.fnet.parameters(), lr=lr)
+            if "PROTEIN" in self.dataset:
+                optimizer = optim.Adam(self.parameters(), lr=lr)
+            else:
+                optimizer = optim.Adam(self.fnet.parameters(), lr=lr)
         else:
             optimizer = optim.Adam(self.parameters(), lr=lr)
 

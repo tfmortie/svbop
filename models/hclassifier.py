@@ -1,5 +1,5 @@
 """
-Hierarchical MC classifier code for image data
+Hierarchical MC classifier code 
 By Thomas Mortier
 """
 
@@ -45,7 +45,10 @@ class PriorityList():
         return len(self.list) == 0
 
     def __repr__(self):
-        return str(self.list)
+        ret_str = ""
+        for l in self.list:
+            ret_str+="({0:.2f},{1}), ".format(1-l[0],l[1].y)
+        return ret_str
 
 """
 Function which calculates accuracy of predictions
@@ -71,7 +74,7 @@ def get_num_learnable_params(model):
 Class which represents a node in HNet
 """
 class HNode(nn.Module):
-    def __init__(self, y, in_features, do_node = 0.25):
+    def __init__(self, y, in_features, do_node = 0.0):
         super(HNode, self).__init__()
         self.y = y  # denotes the subset/singleton of class(es)
         self.in_features = in_features  # dimensionality of feature vector
@@ -80,14 +83,26 @@ class HNode(nn.Module):
         self.do_node = do_node # dropout probability to be applied in each node 
         
     """
-    Needed for HNet's insertHNode function to update its classifier object when a child
-    has been added
-    """
-    def update_classifier(self):
-        self.classifier = nn.Sequential(
-            nn.Linear(self.in_features, len(self.chn)),
-            nn.Softmax(dim=1)
-        )
+    Function which (recursively) adds a child node
+    """        
+    def add_child_node(self, y):
+        # check if leaf or internal node
+        if len(self.chn) > 0:
+            ind = [i for i, j in enumerate(self.chn) if set(y).issubset(set(j.y))]
+            # check if y is a subset of one of the children
+            if len(ind) > 0:
+                self.chn[ind[0]].add_child_node(y)
+            else:
+                self.chn.append(HNode(y, self.in_features))
+                tot_len_y_chn = sum([len(c.y) for c in self.chn])
+                if tot_len_y_chn == len(self.y):
+                    self.classifier = nn.Sequential(
+                        nn.Dropout(p=self.do_node),
+                        nn.Linear(self.in_features, len(self.chn)),
+                        nn.Softmax(dim=1)
+                    )
+        else:
+            self.chn.append(HNode(y, self.in_features))
     
     """
     Forward pass function of (internal) node classifier
@@ -106,7 +121,7 @@ Class which represents a hierarchical multiclass classifier (HNet), together
 with the RBOP algorithm, as implemented in predict.
 """
 class HNet(nn.Module):
-    def __init__(self, in_features, struct, dtype, do_node = 0.25):
+    def __init__(self, in_features, struct, dtype, do_node = 0.0):
         super(HNet, self).__init__()
         # store size of incoming feature vector and dropbout prob for each node
         self.in_features = in_features
@@ -120,35 +135,11 @@ class HNet(nn.Module):
         # store dropout for each node
         self.do_node = do_node
         # root classifier
-        root = None
-        visit_list = []
-        for y in self.struct:
-            root = self.insertHNode(root, y, visit_list)
-        self.root = root
-        
-    """
-    Inserts a HNode in HNet non-recursively
-    """
-    def insertHNode(self,root,y,visit_list):
-        node = HNode(y, self.in_features, self.n_do)
-        if root is None:
-            root = node
-        elif len(visit_list[0].chn) == 0:
-            visit_list[0].chn.append(node)
-            visit_list[0].update_classifier()
-        else:
-            total_len_y_ch = sum([len(c.y) for c in visit_list[0].chn]) + len(node.y)
-            if total_len_y_ch == len(visit_list[0].y):
-                visit_list[0].chn.append(node)
-                visit_list[0].update_classifier()
-                _ = visit_list.pop(0)
-            else:
-                visit_list[0].chn.append(node)
-                visit_list[0].update_classifier()
-        if len(node.y) > 1:
-            visit_list.append(node)
-        return root 
-    
+        self.root = HNode(struct.pop(0), self.in_features, self.do_node)
+        # recursively construct the hierarchical tree classifier
+        while (len(struct) > 0):
+            self.root.add_child_node(struct.pop(0))
+             
     def EU(self, y, py, loss, params):
         if loss == "eloss":
             return (1-params[0]*(((len(y)-1)/(self.m-1))**params[1])) * py
@@ -162,6 +153,14 @@ class HNet(nn.Module):
             return (((params[0])/(len(y)))-((params[1])/(len(y)**2))) * py
         else:
             return "NOT IMPLEMENTED YET!"
+    
+    """
+    stopping criterion
+    """
+    def checkstop(self, y, loss, params):
+        l = self.EU(y,1,loss,params)/(self.EU(y,1,loss,params)-self.EU(y+[0],1,loss,params))
+        r = self.EU(y+[0,0],1,loss,params)/(self.EU(y+[0],1,loss,params)-self.EU(y+[0,0],1,loss,params))
+        return l >= r
         
     """
     forward pass of HNet
@@ -188,22 +187,58 @@ class HNet(nn.Module):
         path_loss = []
         while len(node.chn) != 0:
             n_ind = [i for i, j in enumerate(node.chn) if set([l]).issubset(set(j.y))][0]
-            size = len(node.chn)
+            size = len(node.chn)     
             oh_sel = Variable(torch.eye(size)[n_ind,:].type(self.dtype), requires_grad=False)
             path_loss.append(crit(node(x.unsqueeze(0)), oh_sel.unsqueeze(0)))
             node = node.chn[n_ind]
         return torch.sum(torch.stack(path_loss))
-      
+    
+    """
+    HS-UBOP
+    note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
+    """
+    def predict_hsubop(self, x, loss, params, early_stop=False):
+        pred_list = []
+        EU_list = []
+        for x_i in range(x.shape[0]):
+            Q = PriorityList()
+            Q.push(1.,self.root)
+            L = []
+            y_best, y = [],[]
+            EU_best, py = 0, 0
+            # first sort probabilities
+            while not Q.is_empty():
+                yhat_prob, yhat = Q.pop()
+                yhat_prob = 1.-yhat_prob
+                if len(yhat.chn) == 0:
+                    # we are at a leaf node, hence, perform UBOP iteration
+                    y.extend(yhat.y)
+                    py += yhat_prob
+                    EU = self.EU(y,py,loss,params)
+                    if EU_best < EU:
+                        EU_best = EU
+                        y_best = y.copy()
+                    elif early_stop and self.checkstop(y,loss,params):
+                        break
+                else:
+                    yhat_children = yhat.chn
+                    yhat_edge_probs = yhat(x)[x_i,:]
+                    for i,yhat_child in enumerate(yhat_children):
+                        p_yhat_child = yhat_edge_probs[i]*yhat_prob
+                        Q.push(p_yhat_child,yhat_child)
+            
+            pred_list.append(y_best)
+            EU_list.append(EU_best.item())
+        return pred_list, EU_list
+            
     """
     RBOP
     note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
     """
-    def predict(self, x, loss, params, epsilon):
+    def predict_rbop(self, x, loss, params, epsilon):
         pred_list = []
         EU_list = []
-        for x_i in range(x.shape[0]):
-            inp = torch.cat([x[x_i,:].view(1,-1)]*x.shape[0],dim=0)
-            
+        for x_i in range(x.shape[0]):            
             Q = PriorityList()
             Q.push(1.,self.root)
             K = PriorityList()
@@ -218,7 +253,7 @@ class HNet(nn.Module):
                     K.remove_all()
                     break
                 yhat_children = yhat.chn
-                yhat_edge_probs = yhat(inp,torch.ones(x.shape[0]).type(self.dtype)*yhat_prob)[0,:]
+                yhat_edge_probs = yhat(x)[x_i,:]
                 inserted = []
                 for i,yhat_child in enumerate(yhat_children):
                     p_yhat_child = yhat_edge_probs[i]*yhat_prob
@@ -239,7 +274,7 @@ class HNet(nn.Module):
                 yhat_prob_p = 1.-yhat_prob_p
                 while(len(yhat.y) > 1):
                     opt_p = 0
-                    yhat_edge_probs = yhat(inp,torch.ones(x.shape[0]).type(self.dtype)*yhat_prob_p)[0,:]
+                    yhat_edge_probs = yhat(x)[x_i,:]
                     for i,c in enumerate(yhat.chn):
                         c_p = yhat_edge_probs[i]*yhat_prob_p
                         if c_p > opt_p:
@@ -280,6 +315,46 @@ class HMCC(nn.Module):
             )
             self.ft_size = 25088
             #self.ft_size = 128
+        elif "PROTEIN" in ds:
+            self.embedding = nn.Conv1d(26,8,1)
+            self.ft_scale_cnn = nn.ModuleList([])
+            for scale in [3,5,7,9,11]:
+                self.ft_scale_cnn.append(nn.Sequential(
+                    nn.Conv1d(8,16,scale,padding=(scale-1)//2),
+                    nn.Conv1d(16,32,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(32),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2,3),
+                    nn.Conv1d(32,64,scale,padding=(scale-1)//2),
+                    nn.Conv1d(64,128,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2,3),
+                    nn.Conv1d(128,256,scale,padding=(scale-1)//2),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.MaxPool1d(2),
+                ))
+            if gpu:
+                self.embedding.cuda()
+                self.ft_scale_cnn.cuda()
+            out_embedding = self.embedding(torch.randn(32,26,4911).type(self.dtype))
+            out_scale_cnn = []
+            for cls in self.ft_scale_cnn:
+                print(cls(out_embedding).shape)
+                out_scale_cnn.append(cls(out_embedding))
+            out_scale_cnn = torch.cat(out_scale_cnn,1)
+            out_scale_cnn = out_scale_cnn.transpose(1,2)
+            self.ft_size_scale_cnn = out_scale_cnn.shape
+            print("SCALE CNN SHAPE = {0}".format(self.ft_size_scale_cnn))
+            self.rnn = nn.LSTM(self.ft_size_scale_cnn[2], 128, 1, batch_first=True)
+            if gpu:
+                self.rnn.cuda()
+            out_rnn = self.rnn(out_scale_cnn)[0]
+            out_rnn = out_rnn.transpose(1,2)
+            self.ft_size_rnn = out_rnn.shape
+            print("SCALE RNN SHAPE = {0}".format(self.ft_size_rnn))
+            self.ft_size = self.ft_size_rnn[1]*self.ft_size_rnn[2]
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -309,16 +384,31 @@ class HMCC(nn.Module):
         self.hnet = HNet(self.ft_size, deepcopy(struct), dtype=self.dtype)
 
     def forward(self, x, l=None, train=True):
-        x = self.features(x)
-        x = x.view(-1, self.ft_size)
-        x = self.hnet(x, l=l, train=train)
-
-        return x
+        if "PROTEIN" in self.dataset:
+            x = self.embedding(x)
+            x_scale_cnn = []
+            for cls in self.ft_scale_cnn:
+                x_scale_cnn.append(cls(x))
+            x_scale_cnn = torch.cat(x_scale_cnn,1)
+            x_scale_cnn = x_scale_cnn.transpose(1,2)
+            x_rnn = self.rnn(x_scale_cnn)[0]
+            x_rnn = x_rnn.transpose(1,2)
+            if not x_rnn.is_contiguous():
+                x_rnn = x_rnn.contiguous()
+            x = x_rnn.view(-1,self.ft_size)
+            x = self.hnet(x, l=l, train=train)
+            return x
+        else:
+            x = self.features(x)
+            x = x.view(-1, self.ft_size)
+            x = self.hnet(x, l=l, train=train)
+            return x
 
     def train_model(self,ne,lr,ft=False,verbose=True):
         # fix weights of convnet
-        for p in self.features.parameters():
-            p.requires_grad = ft
+        if "PROTEIN" not in self.dataset:
+            for p in self.features.parameters():
+                p.requires_grad = ft
 
         # print model
         if verbose:
@@ -326,7 +416,10 @@ class HMCC(nn.Module):
         print(get_num_learnable_params(self))
 
         if not ft:
-            optimizer = optim.Adam(self.hnet.parameters(), lr=lr)
+            if "PROTEIN" in self.dataset:
+                optimizer = optim.Adam(self.parameters(), lr=lr)
+            else:
+                optimizer = optim.Adam(self.hnet.parameters(), lr=lr)
         else:
             optimizer = optim.Adam(self.parameters(), lr=lr)
 

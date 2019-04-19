@@ -5,8 +5,6 @@ import torch
 import ast
 import time
 
-
-
 import numpy as np
 import data as d
 import pandas as pd
@@ -37,7 +35,7 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
     params = ast.literal_eval(params)
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-    dataset = d.CustomDataset(pathcsv, transformations)
+    dataset = d.ImageDataset(pathcsv, transformations)
     m = dataset.get_m()
 
     # obtain test loader
@@ -61,8 +59,10 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
     # create empty containers which will contain the posterior's, targets, predictions
     posteriors = []
     targets = []
-    predictions = []
-    runtime = []
+    predictions_sc = []
+    predictions_nsc = []
+    runtime_sc = []
+    runtime_nsc = []
     # start processing test data
     for i, data in enumerate(test_loader, 0):
         # transform data to valid pytorch datatypes
@@ -78,20 +78,24 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
         posteriors.extend(net(inputs).cpu().data.numpy().tolist())
         targets.extend(targs.tolist())
         start = time.time()
-        predictions.extend(net.fnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params)[0])
+        predictions_sc.extend(net.fnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params,True)[0])
         end = time.time()
-        runtime.append(end-start)
+        runtime_sc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        start = time.time()
+        predictions_nsc.extend(net.fnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params)[0])
+        end = time.time()
+        runtime_nsc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         
-    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime))))
+    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime_sc))+np.sum(np.asarray(runtime_nsc))))
     
-    # create dataframe
-    dfdata = {"posterior": posteriors, "target": targets, "prediction": predictions}
+    # create dataframe    
+    dfdata = {"pred_ubop_sc": predictions_sc,"pred_ubop_nsc": predictions_nsc, "posterior": posteriors, "target": targets, "runtime_sc": runtime_sc, "runtime_nsc": runtime_nsc}
     df = pd.DataFrame(data=dfdata)
 
     # store information if necessary
     if store:
         print("SAVING POSTERIORS, TARGETS, PREDICTIONS TO out/...")
-        df.to_csv("out/flat_{0}_{1}_{2}.csv".format(pathcsv.split("/")[-2],loss,params))
+        df.to_csv("out/flat_{0}_{1}_{2}.csv".format(pathcsv.split("/")[-2],loss,params),index=False)
         
     print("[info] shape...")
     print(df.shape)
@@ -107,7 +111,7 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
     epsilon = float(epsilon)
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-    dataset = d.CustomDataset(pathcsv, transformations)
+    dataset = d.ImageDataset(pathcsv, transformations)
     m = dataset.get_m()
 
     # obtain test loader
@@ -128,12 +132,12 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
     print("DONE!\n\n")
     print("OBTAIN PREDICTIONS ON TEST SET...")
     
-    
-    # create empty containers which will contain the posterior's, targets, predictions
-    posteriors = []
+    # create empty containers which will contain the targets, predictions, runtime
     targets = []
-    predictions = []
-    runtime = []
+    predictions_rbop = []
+    predictions_hsubop = []
+    runtime_rbop = []
+    runtime_hsubop = []
     # start processing test data
     for i, data in enumerate(test_loader, 0):
         # transform data to valid pytorch datatypes
@@ -146,23 +150,26 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
         inputs, labels = Variable(inputs.type(dtype)), Variable(labels.type(dtype))
         targs = labels.cpu().data.numpy()
         # store predictions and targets
-        posteriors.extend(net(inputs).cpu().data.numpy().tolist())
         targets.extend(targs.tolist())
         start = time.time()
-        predictions.extend(net.hnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params,epsilon)[0])
+        predictions_rbop.extend(net.hnet.predict_rbop(net.features(inputs).view(-1,net.ft_size),loss,params,epsilon)[0])
         end = time.time()
-        runtime.append(end-start)
+        runtime_rbop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        start = time.time()
+        predictions_hsubop.extend(net.hnet.predict_hsubop(net.features(inputs).view(-1,net.ft_size),loss,params,early_stop=True)[0])
+        end = time.time()
+        runtime_hsubop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         
-    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime))))
+    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime_rbop))+np.sum(np.asarray(runtime_hsubop))))
     
     # create dataframe
-    dfdata = {"posterior": posteriors, "target": targets, "prediction": predictions}
+    dfdata = {"pred_rbop": predictions_rbop, "pred_hsubop": predictions_hsubop, "target": targets, "runtime_rbop": runtime_rbop, "runtime_hsubop": runtime_hsubop}
     df = pd.DataFrame(data=dfdata)
 
     # store information if necessary
     if store:
         print("SAVING POSTERIORS, TARGETS, PREDICTIONS TO out/...")
-        df.to_csv("out/hierarchical_{0}_{1}_{2}_{3}.csv".format(pathcsv.split("/")[-2],loss,params,epsilon))
+        df.to_csv("out/hierarchical_{0}_{1}_{2}_{3}.csv".format(pathcsv.split("/")[-2],loss,params,epsilon),index=False)
         
     print("[info] shape...")
     print(df.shape)

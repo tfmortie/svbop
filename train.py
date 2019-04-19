@@ -39,7 +39,10 @@ def main_flat(pathcsv,valsize,shuffle,ne,lr,bs,pat,ft,vgg,gpu,random_seed):
     print("CREATE DATALOADER FOR {0} ...".format(pathcsv))
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-    dataset = d.CustomDataset(pathcsv, transformations)
+    if "PROTEIN" in pathcsv:
+        dataset = d.ECDataset(pathcsv)
+    else:
+        dataset = d.ImageDataset(pathcsv, transformations)
 
     # initialize samples for training and validation set
     num_samples = len(dataset)
@@ -108,8 +111,12 @@ def main_hierarchical(pathcsv,struct,learns,k,valsize,shuffle,ne,lr,bs,pat,ft,vg
         print("CREATE DATALOADER FOR {0}...".format(pathcsv))
         # define transformations
         transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
+        
         # create dataset object
-        dataset = d.CustomDataset(pathcsv, transformations)
+        if "PROTEIN" in pathcsv:
+            dataset = d.ECDataset(pathcsv)
+        else:
+            dataset = d.ImageDataset(pathcsv, transformations)
 
         # initialize samples for training and validation set
         num_samples = len(dataset)
@@ -148,7 +155,8 @@ def main_hierarchical(pathcsv,struct,learns,k,valsize,shuffle,ne,lr,bs,pat,ft,vg
                                 num_workers=4,
                                 pin_memory=gpu
                                 )
-        print("Hierarchy: {0}".format(struct))
+        if len(struct) <= 500:
+            print("Hierarchy: {0}".format(struct))
         print("DONE!\n\n")
         print("CREATE MODEL...")
         # create model
