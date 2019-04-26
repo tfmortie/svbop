@@ -35,7 +35,11 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
     params = ast.literal_eval(params)
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-    dataset = d.ImageDataset(pathcsv, transformations)
+    if "PROTEIN" in pathcsv:
+        dataset = d.ECDataset(pathcsv)
+    else:
+        dataset = d.ImageDataset(pathcsv, transformations)
+        
     m = dataset.get_m()
 
     # obtain test loader
@@ -70,19 +74,39 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
             dtype = torch.cuda.FloatTensor
         else:
             dtype = torch.FloatTensor
-
-        inputs, labels = data
-        inputs, labels = Variable(inputs.type(dtype)), Variable(labels.type(dtype))
+            
+        if "PROTEIN" in pathcsv:
+            inputs, inputs_fund, labels = data
+            inputs, inputs_fund, labels = Variable(inputs.type(net.dtype)), Variable(inputs_fund.type(net.dtype)), Variable(labels.type(net.dtype))
+        else:
+            inputs, labels = data
+            inputs, labels = Variable(inputs.type(net.dtype)), Variable(labels.type(net.dtype))           
+        
         targs = labels.cpu().data.numpy()
         # store predictions and targets
-        posteriors.extend(net(inputs).cpu().data.numpy().tolist())
+        if "PROTEIN" in pathcsv:
+            posteriors.extend(net([inputs, inputs_fund]).cpu().data.numpy().tolist())
+        else:   
+            posteriors.extend(net(inputs).cpu().data.numpy().tolist())
+            
         targets.extend(targs.tolist())
+        if "PROTEIN" in pathcsv:
+            inputs = net.embedding(inputs)
+            inputs = net.ft_cnn(inputs)
+            if not inputs.is_contiguous():
+                inputs = inputs.contiguous()
+            inputs = inputs.view(-1,net.ft_size_cnn[1]*net.ft_size_cnn[2])
+            fundx = net.fund(inputs_fund)
+            inputs = torch.cat([inputs, fundx],1)
+            inputs = net.final(inputs)
+        else:
+            inputs = net.features(inputs).view(-1,net.ft_size)
         start = time.time()
-        predictions_sc.extend(net.fnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params,True)[0])
+        predictions_sc.extend(net.fnet.predict(inputs,loss,params,True)[0])
         end = time.time()
         runtime_sc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         start = time.time()
-        predictions_nsc.extend(net.fnet.predict(net.features(inputs).view(-1,net.ft_size),loss,params)[0])
+        predictions_nsc.extend(net.fnet.predict(inputs,loss,params)[0])
         end = time.time()
         runtime_nsc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         
@@ -111,7 +135,11 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
     epsilon = float(epsilon)
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-    dataset = d.ImageDataset(pathcsv, transformations)
+    # create dataset object
+    if "PROTEIN" in pathcsv:
+        dataset = d.ECDataset(pathcsv)
+    else:
+        dataset = d.ImageDataset(pathcsv, transformations)
     m = dataset.get_m()
 
     # obtain test loader
@@ -146,17 +174,32 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
         else:
             dtype = torch.FloatTensor
 
-        inputs, labels = data
-        inputs, labels = Variable(inputs.type(dtype)), Variable(labels.type(dtype))
+        if "PROTEIN" in pathcsv:
+            inputs, inputs_fund, labels = data
+            inputs, inputs_fund, labels = Variable(inputs.type(net.dtype)), Variable(inputs_fund.type(net.dtype)), Variable(labels.type(net.dtype))
+        else:
+            inputs, labels = data
+            inputs, labels = Variable(inputs.type(net.dtype)), Variable(labels.type(net.dtype))   
         targs = labels.cpu().data.numpy()
         # store predictions and targets
         targets.extend(targs.tolist())
+        if "PROTEIN" in pathcsv:
+            inputs = net.embedding(inputs)
+            inputs = net.ft_cnn(inputs)
+            if not inputs.is_contiguous():
+                inputs = inputs.contiguous()
+            inputs = inputs.view(-1,net.ft_size_cnn[1]*net.ft_size_cnn[2])
+            fundx = net.fund(inputs_fund)
+            inputs = torch.cat([inputs, fundx],1)
+            inputs = net.final(inputs)
+        else:
+            inputs = net.features(inputs).view(-1,net.ft_size)
         start = time.time()
-        predictions_rbop.extend(net.hnet.predict_rbop(net.features(inputs).view(-1,net.ft_size),loss,params,epsilon)[0])
+        predictions_rbop.extend(net.hnet.predict_rbop(inputs,loss,params,epsilon)[0])
         end = time.time()
         runtime_rbop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         start = time.time()
-        predictions_hsubop.extend(net.hnet.predict_hsubop(net.features(inputs).view(-1,net.ft_size),loss,params,early_stop=True)[0])
+        predictions_hsubop.extend(net.hnet.predict_hsubop(inputs,loss,params,early_stop=True)[0])
         end = time.time()
         runtime_hsubop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
         

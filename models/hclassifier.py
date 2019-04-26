@@ -21,6 +21,7 @@ import torch.nn.init as init
 from torch.autograd import Variable
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
+from imblearn.over_sampling import SMOTE
 
 """
 Priority queue needed for the RBOP inference algorithm
@@ -210,10 +211,9 @@ class HNet(nn.Module):
         for x_i in range(x.shape[0]):
             Q = PriorityList()
             Q.push(1.,self.root)
-            L = []
             y_best, y = [],[]
             EU_best, py = 0, 0
-            # first sort probabilities
+            # visit tree
             while not Q.is_empty():
                 yhat_prob, yhat = Q.pop()
                 yhat_prob = 1.-yhat_prob
@@ -224,7 +224,7 @@ class HNet(nn.Module):
                     EU = self.EU(y,py,loss,params)
                     if EU_best < EU:
                         EU_best = EU
-                        y_best = y.copy()
+                        y_best = y.copy() # might be 
                     elif early_stop and self.checkstop(y,loss,params):
                         break
                 else:
@@ -323,44 +323,53 @@ class HMCC(nn.Module):
             self.ft_size = 25088
             #self.ft_size = 128
         elif "PROTEIN" in ds:
-            self.embedding = nn.Conv1d(26,8,1)
-            self.ft_scale_cnn = nn.ModuleList([])
-            for scale in [3,5,7,9,11]:
-                self.ft_scale_cnn.append(nn.Sequential(
-                    nn.Conv1d(8,16,scale,padding=(scale-1)//2),
-                    nn.Conv1d(16,32,scale,padding=(scale-1)//2),
-                    nn.BatchNorm1d(32),
-                    nn.ReLU(),
-                    nn.MaxPool1d(2,3),
-                    nn.Conv1d(32,64,scale,padding=(scale-1)//2),
-                    nn.Conv1d(64,128,scale,padding=(scale-1)//2),
-                    nn.BatchNorm1d(128),
-                    nn.ReLU(),
-                    nn.MaxPool1d(2,3),
-                    nn.Conv1d(128,256,scale,padding=(scale-1)//2),
-                    nn.BatchNorm1d(256),
-                    nn.ReLU(),
-                    nn.MaxPool1d(2),
-                ))
+            self.embedding = nn.Conv1d(26,50,1)
+            self.ft_cnn = nn.Sequential(
+                nn.Conv1d(50,64,3),
+                nn.BatchNorm1d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Conv1d(64,128,4),
+                nn.BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Conv1d(128,256,5),
+                nn.BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Conv1d(256,512,6),
+                nn.BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+            )
             if gpu:
                 self.embedding.cuda()
-                self.ft_scale_cnn.cuda()
-            out_embedding = self.embedding(torch.randn(32,26,4911).type(self.dtype))
-            out_scale_cnn = []
-            for cls in self.ft_scale_cnn:
-                out_scale_cnn.append(cls(out_embedding))
-            out_scale_cnn = torch.cat(out_scale_cnn,1)
-            out_scale_cnn = out_scale_cnn.transpose(1,2)
-            self.ft_size_scale_cnn = out_scale_cnn.shape
-            print("SCALE CNN SHAPE = {0}".format(self.ft_size_scale_cnn))
-            self.rnn = nn.LSTM(self.ft_size_scale_cnn[2], 128, 1, batch_first=True)
-            if gpu:
-                self.rnn.cuda()
-            out_rnn = self.rnn(out_scale_cnn)[0]
-            out_rnn = out_rnn.transpose(1,2)
-            self.ft_size_rnn = out_rnn.shape
-            print("SCALE RNN SHAPE = {0}".format(self.ft_size_rnn))
-            self.ft_size = self.ft_size_rnn[1]*self.ft_size_rnn[2]
+                self.ft_cnn.cuda()
+            out_embedding = self.embedding(torch.randn(32,26,1000).type(self.dtype))
+            out_cnn = self.ft_cnn(out_embedding)
+            self.ft_size_cnn = out_cnn.shape
+            print("CNN SHAPE = {0}".format(self.ft_size_cnn))
+            self.ft_size = self.ft_size_cnn[1]*self.ft_size_cnn[2]
+            self.fund = nn.Sequential(
+                nn.Linear(17929,1024),
+                nn.BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.Linear(1024,128),
+                nn.BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU()
+            )
+            self.final = nn.Sequential(
+                nn.Linear(128+self.ft_size,5012),
+                nn.BatchNorm1d(5012, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.Linear(5012,1024),
+                nn.BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU(),
+                nn.Linear(1024,128),
+                nn.BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+                nn.ReLU()
+            )
+            self.ft_size = 128
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -385,23 +394,21 @@ class HMCC(nn.Module):
                 nn.MaxPool2d(kernel_size=2,ceil_mode=False)
             )
             self.ft_size = 6400
-
         # hierarchical tree classifier part
         self.hnet = HNet(self.ft_size, deepcopy(struct), dtype=self.dtype)
 
+
     def forward(self, x, l=None, train=True):
         if "PROTEIN" in self.dataset:
+            x, fundx = x[0],x[1]
             x = self.embedding(x)
-            x_scale_cnn = []
-            for cls in self.ft_scale_cnn:
-                x_scale_cnn.append(cls(x))
-            x_scale_cnn = torch.cat(x_scale_cnn,1)
-            x_scale_cnn = x_scale_cnn.transpose(1,2)
-            x_rnn = self.rnn(x_scale_cnn)[0]
-            x_rnn = x_rnn.transpose(1,2)
-            if not x_rnn.is_contiguous():
-                x_rnn = x_rnn.contiguous()
-            x = x_rnn.view(-1,self.ft_size)
+            x = self.ft_cnn(x)
+            if not x.is_contiguous():
+                x = x.contiguous()
+            x = x.view(-1,self.ft_size_cnn[1]*self.ft_size_cnn[2])
+            fundx = self.fund(fundx)
+            x = torch.cat([x, fundx],1)
+            x = self.final(x)
             x = self.hnet(x, l=l, train=train)
             return x
         else:
@@ -417,7 +424,7 @@ class HMCC(nn.Module):
                 p.requires_grad = ft
 
         # print model
-        if verbose:
+        if verbose and len(self.struct[0])<=500:
             print(self)
         print(get_num_learnable_params(self))
 
@@ -441,8 +448,12 @@ class HMCC(nn.Module):
             # loop over training data
             counter_train = 0
             for i, data in enumerate(self.trdl, 0):
-                inputs, labels = data
-                inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype), requires_grad=False)
+                if "PROTEIN" in self.dataset:
+                    inputs, inputs_fund, labels = data
+                    inputs, inputs_fund, labels = Variable(inputs.type(self.dtype)), Variable(inputs_fund.type(self.dtype)), Variable(labels.type(self.dtype), requires_grad=False)
+                else:
+                    inputs, labels = data
+                    inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype), requires_grad=False)
                 
                 # obtain "plain" targets
                 targets = labels.cpu().data.numpy()
@@ -457,7 +468,10 @@ class HMCC(nn.Module):
                 
                 # obtain loss, and do backprop
                 start_time = time.time()
-                losses = self(inputs,targs_to_list)
+                if "PROTEIN" in self.dataset:
+                    losses = self([inputs,inputs_fund],targs_to_list)
+                else:
+                    losses = self(inputs,targs_to_list)
                 loss = torch.mean(torch.stack(losses))
                 loss.backward()
                 optimizer.step()
@@ -470,12 +484,15 @@ class HMCC(nn.Module):
             # loop over validation data
             counter_val = 0
             for i, data in enumerate(self.vldl, 0):
-
                 # set model to evaluation mode and
                 self.eval()
 
-                inputs, labels = data
-                inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype))
+                if "PROTEIN" in self.dataset:
+                    inputs, inputs_fund, labels = data
+                    inputs, inputs_fund, labels = Variable(inputs.type(self.dtype)), Variable(inputs_fund.type(self.dtype)), Variable(labels.type(self.dtype))
+                else:
+                    inputs, labels = data
+                    inputs, labels = Variable(inputs.type(self.dtype)), Variable(labels.type(self.dtype))   
                 
                 # obtain "plain" targets
                 targets = labels.cpu().data.numpy()
@@ -483,10 +500,16 @@ class HMCC(nn.Module):
                 targs_to_list = [c+1 for c in targs_to_class]
                 
                 # calculate losses and accuracy
-                losses = self(inputs,targs_to_list)
-                loss = torch.mean(torch.stack(losses))
-                val_running_loss += loss.item()
-                val_acc += calculate_accuracy(self(inputs,train=False), labels)
+                if "PROTEIN" in self.dataset:
+                    losses = self([inputs,inputs_fund],targs_to_list)
+                    loss = torch.mean(torch.stack(losses))
+                    val_running_loss += loss.item()
+                    val_acc += calculate_accuracy(self([inputs,inputs_fund],train=False), labels)
+                else:
+                    losses = self(inputs,targs_to_list)
+                    loss = torch.mean(torch.stack(losses))
+                    val_running_loss += loss.item()
+                    val_acc += calculate_accuracy(self(inputs,train=False), labels)    
 
                 counter_val += 1
             print("EPOCH {0}: lossTr={1:.3f}    timeTr={2:4f}    lossVal={3:.3f}    accVal={4:.3f}".format(epoch + 1, train_running_loss/counter_train, train_time/counter_train, val_running_loss/counter_val, val_acc/counter_val))
