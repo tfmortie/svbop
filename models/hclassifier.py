@@ -75,7 +75,7 @@ def get_num_learnable_params(model):
 Class which represents a node in HNet
 """
 class HNode(nn.Module):
-    def __init__(self, y, in_features, do_node = 0.0):
+    def __init__(self, y, in_features, do_node = 0.25):
         super(HNode, self).__init__()
         self.y = y  # denotes the subset/singleton of class(es)
         self.in_features = in_features  # dimensionality of feature vector
@@ -129,7 +129,7 @@ Class which represents a hierarchical multiclass classifier (HNet), together
 with the RBOP algorithm, as implemented in predict.
 """
 class HNet(nn.Module):
-    def __init__(self, in_features, struct, dtype, do_node = 0.0):
+    def __init__(self, in_features, struct, dtype, do_node = 0.25):
         super(HNet, self).__init__()
         # store size of incoming feature vector and dropbout prob for each node
         self.in_features = in_features
@@ -202,30 +202,57 @@ class HNet(nn.Module):
         return torch.sum(torch.stack(path_loss))
     
     """
+    POSTERIOR
+    predicts posterior class probabilities
+    """
+    def predict(self, x):
+        if self.dtype == torch.cuda.FloatTensor:
+            v_list = [(self.root,torch.ones(x.shape[0],1).cuda())]
+            p = torch.zeros(x.shape[0],self.m).cuda()
+        else:
+            v_list = [(self.root,torch.ones(x.shape[0],1))]
+            p = torch.zeros(x.shape[0],self.m)
+        while(len(v_list) != 0):
+            n_t_v, p_p = v_list.pop(0)
+            nc_n_t_v = len(n_t_v.chn)
+            if nc_n_t_v == 0:
+                p[:,n_t_v.y[0]-1] = p_p[:,0]
+            else:
+                p_p = p_p.repeat(1,nc_n_t_v)
+                n_p = p_p*n_t_v(x)
+                for i,c in enumerate(n_t_v.chn):
+                    v_list.append((c,n_p[:,i].view(-1,1)))
+        return p
+    
+    """
     HS-UBOP
     note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
     """
     def predict_hsubop(self, x, loss, params, early_stop=False):
         pred_list = []
         EU_list = []
+        diag = []
         for x_i in range(x.shape[0]):
             Q = PriorityList()
             Q.push(1.,self.root)
-            y_best, y = [],[]
+            y_best, y = 0, []
             EU_best, py = 0, 0
+            nodes_visited = 0
             # visit tree
             while not Q.is_empty():
                 yhat_prob, yhat = Q.pop()
+                nodes_visited += 1
                 yhat_prob = 1.-yhat_prob
                 if len(yhat.chn) == 0:
                     # we are at a leaf node, hence, perform UBOP iteration
                     y.extend(yhat.y)
                     py += yhat_prob
                     EU = self.EU(y,py,loss,params)
-                    if EU_best < EU:
+                    if EU_best <= EU:
                         EU_best = EU
-                        y_best = y.copy() # might be 
-                    elif early_stop and self.checkstop(y,loss,params):
+                        y_best = len(y)
+                    elif early_stop:
+                        # no improvement, hence we can stop
                         break
                 else:
                     yhat_children = yhat.chn
@@ -233,10 +260,10 @@ class HNet(nn.Module):
                     for i,yhat_child in enumerate(yhat_children):
                         p_yhat_child = yhat_edge_probs[i]*yhat_prob
                         Q.push(p_yhat_child,yhat_child)
-            
-            pred_list.append(y_best)
+            pred_list.append(y[:y_best])
             EU_list.append(EU_best.item())
-        return pred_list, EU_list
+            diag.append(nodes_visited)
+        return pred_list, EU_list, diag
             
     """
     RBOP
@@ -245,16 +272,17 @@ class HNet(nn.Module):
     def predict_rbop(self, x, loss, params, epsilon):
         pred_list = []
         EU_list = []
+        diag = []
         for x_i in range(x.shape[0]):            
             Q = PriorityList()
             Q.push(1.,self.root)
             K = PriorityList()
-            
             yhat_eps = self.root.y
             EU_eps = self.EU(self.root.y,1.,loss,params)
-            
+            nodes_visited = 0
             while not Q.is_empty():
                 yhat_prob, yhat = Q.pop()
+                nodes_visited += 1
                 yhat_prob = 1.-yhat_prob
                 if len(yhat.chn) == 0:
                     K.remove_all()
@@ -277,9 +305,11 @@ class HNet(nn.Module):
                     K.push(yhat_prob,yhat)
                     
             while not K.is_empty():
+                nodes_visited += 1
                 yhat_prob_p, yhat = K.pop()
                 yhat_prob_p = 1.-yhat_prob_p
                 while(len(yhat.y) > 1):
+                    nodes_visited += 1
                     opt_p = 0
                     yhat_edge_probs = yhat(x)[x_i,:]
                     for i,c in enumerate(yhat.chn):
@@ -294,7 +324,47 @@ class HNet(nn.Module):
                     yhat_prob_p = opt_p
             pred_list.append(yhat_eps)
             EU_list.append(EU_eps.item())
-        return pred_list, EU_list
+            diag.append(nodes_visited)
+        return pred_list, EU_list, diag
+
+    """
+    RBOP-CH
+    note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
+    """
+    def predict_rbopch(self, x, loss, params):
+        pred_list = []
+        EU_list = []
+        diag = []
+        for x_i in range(x.shape[0]):
+            Q = PriorityList()
+            Q.push(1.,self.root)
+            y_best, y = 0, []
+            EU_best, py = 0, 0
+            nodes_visited = 0
+            # visit tree
+            while not Q.is_empty():
+                yhat_prob, yhat = Q.pop()
+                nodes_visited += 1
+                yhat_prob = 1.-yhat_prob
+                EU = self.EU(yhat, yhat_prob, loss, params)
+                if EU_best <= EU:
+                    y_best = yhat
+                    EU_best = EU
+                if len(yhat.chn) == 0:
+                    # no improvement, hence we can stop
+                    break
+                elif
+                    yhat_children = yhat.chn
+                    yhat_edge_probs = yhat(x)[x_i,:]
+                    for i,yhat_child in enumerate(yhat_children):
+                        p_yhat_child = yhat_edge_probs[i]*yhat_prob
+                        Q.push(p_yhat_child,yhat_child)  
+
+            pred_list.append(y_best)
+            EU_list.append(EU_best.item())
+            diag.append(nodes_visited)
+        return pred_list, EU_list, diag
+
     
 """
 Hierarchical softmax neural network for image data
@@ -321,7 +391,6 @@ class HMCC(nn.Module):
                 *list(models.vgg16_bn(pretrained=True).features.children())
             )
             self.ft_size = 25088
-            #self.ft_size = 128
         elif "PROTEIN" in ds:
             self.embedding = nn.Conv1d(26,50,1)
             self.ft_cnn = nn.Sequential(
@@ -361,15 +430,9 @@ class HMCC(nn.Module):
             self.final = nn.Sequential(
                 nn.Linear(128+self.ft_size,5012),
                 nn.BatchNorm1d(5012, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-                nn.ReLU(),
-                nn.Linear(5012,1024),
-                nn.BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-                nn.ReLU(),
-                nn.Linear(1024,128),
-                nn.BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
                 nn.ReLU()
             )
-            self.ft_size = 128
+            self.ft_size = 5012
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -413,15 +476,29 @@ class HMCC(nn.Module):
             return x
         else:
             x = self.features(x)
-            x = x.view(-1, self.ft_size)
+            x = x.view(-1,self.ft_size)
             x = self.hnet(x, l=l, train=train)
             return x
 
     def train_model(self,ne,lr,ft=False,verbose=True):
-        # fix weights of convnet
-        if "PROTEIN" not in self.dataset:
-            for p in self.features.parameters():
-                p.requires_grad = ft
+        # fix weights of model
+        for p in self.parameters():
+            p.requires_grad = True
+
+        if not ft:
+            if "PROTEIN" in self.dataset:
+                self.load_state_dict(torch.load("./data/other/PROTEIN2/prot2.pt"),strict=False)
+                for p in self.embedding.parameters():
+                    p.requires_grad = False
+                for p in self.ft_cnn.parameters():
+                    p.requires_grad = False
+                for p in self.fund.parameters():
+                    p.requires_grad = False
+                for p in self.final.parameters():
+                    p.requires_grad = False
+            else:
+                for p in self.features.parameters():
+                    p.requires_grad = False
 
         # print model
         if verbose and len(self.struct[0])<=500:
@@ -429,10 +506,7 @@ class HMCC(nn.Module):
         print(get_num_learnable_params(self))
 
         if not ft:
-            if "PROTEIN" in self.dataset:
-                optimizer = optim.Adam(self.parameters(), lr=lr)
-            else:
-                optimizer = optim.Adam(self.hnet.parameters(), lr=lr)
+            optimizer = optim.Adam(self.hnet.parameters(), lr=lr)
         else:
             optimizer = optim.Adam(self.parameters(), lr=lr)
 

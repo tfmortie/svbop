@@ -1,6 +1,5 @@
 """
 Random hierarchy generator with arbitrary branching degree
-By Thomas Mortier
 """
 
 import numpy as np

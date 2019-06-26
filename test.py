@@ -29,9 +29,17 @@ def num_obs_csv(file):
     number_lines = sum(1 for line in open(file))
     return(number_lines-1)
 
-def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
+def main_flat(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,store):
     print("CREATE DATALOADER FOR {0}...".format(pathcsv))
-    # string conversions
+    # we need the struct for BU-RBOP
+    with open(struct, 'r') as reader:
+        # read struct file
+        struct = reader.read()
+    struct = ast.literal_eval(struct)
+    # sort in increasing order of size of sets
+    struct = list(np.array(struct)[list(np.argsort(np.array([len(x) for x in struct])))])
+    # transform to index list
+    struct = [list(np.array(x)-1) for x in struct]
     params = ast.literal_eval(params)
     # define transformations
     transformations = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
@@ -65,8 +73,13 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
     targets = []
     predictions_sc = []
     predictions_nsc = []
+    predictions_burbop = []
+    nv_sc = []
+    nv_nsc = []
+    nv_burbop = []
     runtime_sc = []
     runtime_nsc = []
+    runtime_burbop = []
     # start processing test data
     for i, data in enumerate(test_loader, 0):
         # transform data to valid pytorch datatypes
@@ -102,24 +115,34 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
         else:
             inputs = net.features(inputs).view(-1,net.ft_size)
         start = time.time()
-        predictions_sc.extend(net.fnet.predict(inputs,loss,params,True)[0])
+        predl_sc, _ , nvl_sc = net.fnet.predict(inputs,loss,params,True)
         end = time.time()
+        predictions_sc.extend(predl_sc)
         runtime_sc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        nv_sc.extend(nvl_sc)
         start = time.time()
-        predictions_nsc.extend(net.fnet.predict(inputs,loss,params)[0])
+        predl_nsc, _ , nvl_nsc = net.fnet.predict(inputs,loss,params)
         end = time.time()
+        predictions_nsc.extend(predl_nsc)
         runtime_nsc.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        nv_nsc.extend(nvl_nsc)
+        start = time.time()
+        predl_burbop, _ , nvl_burbop = net.fnet.predict_burbop(inputs,loss,params,struct)
+        end = time.time()
+        predictions_burbop.extend(predl_burbop)
+        runtime_burbop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        nv_burbop.extend(nvl_burbop)
         
-    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime_sc))+np.sum(np.asarray(runtime_nsc))))
+    print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime_sc))+np.sum(np.asarray(runtime_nsc))+np.sum(np.asarray(runtime_burbop))))
     
     # create dataframe    
-    dfdata = {"pred_ubop_sc": predictions_sc,"pred_ubop_nsc": predictions_nsc, "posterior": posteriors, "target": targets, "runtime_sc": runtime_sc, "runtime_nsc": runtime_nsc}
+    dfdata = {"pred_ubop_sc": predictions_sc,"pred_ubop_nsc": predictions_nsc, "pred_burbop": predictions_burbop, "posterior": posteriors, "target": targets, "runtime_sc": runtime_sc, "nv_sc": nv_sc, "runtime_nsc": runtime_nsc, "nv_nsc": nv_nsc, "runtime_burbop": runtime_burbop, "nv_burbop": nv_burbop}
     df = pd.DataFrame(data=dfdata)
 
     # store information if necessary
     if store:
-        print("SAVING POSTERIORS, TARGETS, PREDICTIONS TO out/...")
-        df.to_csv("out/flat_{0}_{1}_{2}.csv".format(pathcsv.split("/")[-2],loss,params),index=False)
+        print("SAVING TO out/...")
+        df.to_csv("out/all_csv_1605/flat_{0}_{1}_{2}.csv".format(pathcsv.split("/")[-2],loss,params),index=False)
         
     print("[info] shape...")
     print(df.shape)
@@ -130,6 +153,9 @@ def main_flat(pathmodel,pathcsv,bs,pat,vgg,gpu,loss,params,store):
 def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilon,store):
     print("CREATE DATALOADER FOR " + pathcsv + "...")
     # string conversions
+    with open(struct, 'r') as reader:
+        # read struct file
+        struct = reader.read()
     struct = ast.literal_eval(struct)
     params = ast.literal_eval(params)
     epsilon = float(epsilon)
@@ -161,9 +187,12 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
     print("OBTAIN PREDICTIONS ON TEST SET...")
     
     # create empty containers which will contain the targets, predictions, runtime
+    posteriors = []
     targets = []
     predictions_rbop = []
     predictions_hsubop = []
+    nv_rbop = []
+    nv_hsubop = []
     runtime_rbop = []
     runtime_hsubop = []
     # start processing test data
@@ -194,25 +223,29 @@ def main_hierarchical(pathmodel,struct,pathcsv,bs,pat,vgg,gpu,loss,params,epsilo
             inputs = net.final(inputs)
         else:
             inputs = net.features(inputs).view(-1,net.ft_size)
+        posteriors.extend(net.hnet.predict(inputs).cpu().data.numpy().tolist())    
         start = time.time()
-        predictions_rbop.extend(net.hnet.predict_rbop(inputs,loss,params,epsilon)[0])
+        predl_rbop, _, nvl_rbop = net.hnet.predict_rbop(inputs,loss,params,epsilon)
         end = time.time()
+        predictions_rbop.extend(predl_rbop)
         runtime_rbop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        nv_rbop.extend(nvl_rbop)
         start = time.time()
-        predictions_hsubop.extend(net.hnet.predict_hsubop(inputs,loss,params,early_stop=True)[0])
+        predl_hsubop, _, nvl_hsubop = net.hnet.predict_hsubop(inputs,loss,params,early_stop=True)
         end = time.time()
+        predictions_hsubop.extend(predl_hsubop)
         runtime_hsubop.extend([(end-start)/len(targs.tolist())]*len(targs.tolist()))
+        nv_hsubop.extend(nvl_hsubop)
         
     print("[info] total time to calculate predictions: {0}".format(np.sum(np.asarray(runtime_rbop))+np.sum(np.asarray(runtime_hsubop))))
-    
     # create dataframe
-    dfdata = {"pred_rbop": predictions_rbop, "pred_hsubop": predictions_hsubop, "target": targets, "runtime_rbop": runtime_rbop, "runtime_hsubop": runtime_hsubop}
+    dfdata = {"pred_rbop": predictions_rbop, "pred_hsubop": predictions_hsubop, "posterior": posteriors, "target": targets, "runtime_rbop": runtime_rbop, "nv_rbop": nv_rbop, "runtime_hsubop": runtime_hsubop, "nv_hsubop": nv_hsubop}
     df = pd.DataFrame(data=dfdata)
-
+    
     # store information if necessary
     if store:
-        print("SAVING POSTERIORS, TARGETS, PREDICTIONS TO out/...")
-        df.to_csv("out/hierarchical_{0}_{1}_{2}_{3}.csv".format(pathcsv.split("/")[-2],loss,params,epsilon),index=False)
+        print("SAVING TO out/...")
+        df.to_csv("out/all_csv_1605/hierarchical_{0}_{1}_{2}_{3}_{4}.csv".format(pathmodel.split("_")[-3],pathcsv.split("/")[-2],loss,params,epsilon),index=False)
         
     print("[info] shape...")
     print(df.shape)
@@ -247,6 +280,7 @@ def main(args):
     # intitiate call based on type of model
     if args.model == "flat":
         main_flat(args.pathmodel,
+                      args.struct,
                       args.pathcsv,
                       args.batchsize,
                       args.patience,

@@ -55,7 +55,7 @@ class FNet(nn.Module):
         self.m = num_classes
         # classifier
         self.classifier = nn.Sequential(
-            #nn.Dropout(p=0.25),
+            nn.Dropout(p=0.25),
             nn.Linear(in_features=self.in_features, out_features=self.m),
             nn.Softmax(dim=1)
         )
@@ -81,12 +81,8 @@ class FNet(nn.Module):
             return "NOT IMPLEMENTED YET!"
     
     def checkstop(self, y, loss, params):
-        if self.dtype == torch.cuda.FloatTensor:
-            y_l = list(y.cpu().numpy())
-        else:
-            y_l = list(y.numpy())
-        l = self.EU(y_l,1,loss,params)/(self.EU(y_l,1,loss,params)-self.EU(y_l+[0],1,loss,params))
-        r = self.EU(y_l+[0,0],1,loss,params)/(self.EU(y_l+[0],1,loss,params)-self.EU(y_l+[0,0],1,loss,params))
+        l = self.EU(y,1,loss,params)/(self.EU(y,1,loss,params)-self.EU(y+[0],1,loss,params))
+        r = self.EU(y+[0,0],1,loss,params)/(self.EU(y+[0],1,loss,params)-self.EU(y+[0,0],1,loss,params))
         return l >= r
     
     """
@@ -96,30 +92,58 @@ class FNet(nn.Module):
     def predict(self, x, loss, params, early_stop=False):
         pred_list = []
         EU_list = []
+        diag = []
         for x_i in range(x.shape[0]):
-            inp = torch.cat([x[x_i,:].view(1,-1)]*x.shape[0],dim=0)
+            inp = self(torch.cat([x[x_i,:].view(1,-1)]*x.shape[0],dim=0))[0,:].cpu()
             # sort probabilities in decreasing order
-            p, ind = torch.sort(self(inp)[0,:],descending=True)
+            p, ind = torch.sort(inp,descending=True)
             ind += 1
             y = []
             y_best = []
+            py = 0
             EU_best = 0
-            for i in range(1,len(p)+1):
-                y = ind[:i]
-                py = torch.sum(p[:i])
+            nodes_visited = 0
+            for i in range(len(p)):
+                nodes_visited += 1
+                y.append(ind[i].item())
+                py += p[i]
                 EU = self.EU(y,py,loss,params)
                 if EU_best < EU:
                     EU_best = EU
-                    y_best = y
-                elif early_stop and self.checkstop(y,loss,params):
-                    break
-            if self.dtype == torch.cuda.FloatTensor:
-                pred_list.append(list(y_best.cpu().numpy()))
-            else:
-                pred_list.append(list(y_best.numpy()))
+                    y_best = i
+                elif early_stop:
+                    # no improvement, hence we can stop
+                    break 
+            pred_list.append(y[:y_best+1])
             EU_list.append(EU_best.item())
-        return pred_list, EU_list
+            diag.append(nodes_visited)
+        return pred_list, EU_list, diag
 
+    """
+    BU-RBOP
+    note that x is a batch of instances (pytorch currently only supports batch-wise prediction)
+    """
+    def predict_burbop(self, x, loss, params, vt):
+        pred_list = []
+        EU_list = []
+        diag = []
+        for x_i in range(x.shape[0]):
+            p = self(torch.cat([x[x_i,:].view(1,-1)]*x.shape[0],dim=0))[0,:].cpu()
+            y_best = []
+            EU_best = 0
+            nodes_visited = 0
+            for y in vt:
+                nodes_visited += 1
+                py = torch.sum(p[y])
+                EU = self.EU(y,py,loss,params)
+                if EU_best < EU:
+                    EU_best = EU
+                    y_best = list(np.array(y)+1)
+            pred_list.append(y_best)
+            EU_list.append(EU_best.item())
+            diag.append(nodes_visited)
+        return pred_list, EU_list, diag
+ 
 """
 Flat softmax neural network 
 """
@@ -186,14 +210,9 @@ class FMCC(nn.Module):
                 nn.Linear(128+self.ft_size,5012),
                 nn.BatchNorm1d(5012, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
                 nn.ReLU(),
-                nn.Linear(5012,1024),
-                nn.BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-                nn.ReLU(),
-                nn.Linear(1024,128),
-                nn.BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-                nn.ReLU()
             )
-            self.ft_size = 128
+            #self.ft_size = 128
+            self.ft_size = 5012
         else:
             self.features = nn.Sequential(
                 nn.Conv2d(3, 16, kernel_size=(4, 4)),
@@ -242,7 +261,21 @@ class FMCC(nn.Module):
             return x
 
     def train_model(self,ne,lr,ft=False,verbose=True):
-        # fix weights of convnet
+        # fix weights of model
+        for p in self.parameters():
+            p.requires_grad = True
+            
+        if not ft:
+            if "PROTEIN" in self.dataset:
+                self.load_state_dict(torch.load("./data/other/PROTEIN2/prot2.pt"),strict=False) 
+                for p in self.embedding.parameters():
+                    p.requires_grad = False
+                for p in self.ft_cnn.parameters():
+                    p.requires_grad = False
+                for p in self.fund.parameters():
+                    p.requires_grad = False
+                for p in self.final.parameters():
+                    p.requires_grad = False
         if "PROTEIN" not in self.dataset:
             for p in self.features.parameters():
                 p.requires_grad = ft
@@ -256,10 +289,7 @@ class FMCC(nn.Module):
         criterion = nn.BCELoss()
 
         if not ft:
-            if "PROTEIN" in self.dataset:
-                optimizer = optim.Adam(self.parameters(), lr=lr)
-            else:
-                optimizer = optim.Adam(self.fnet.parameters(), lr=lr)
+            optimizer = optim.Adam(self.fnet.parameters(), lr=lr)
         else:
             optimizer = optim.Adam(self.parameters(), lr=lr)
 

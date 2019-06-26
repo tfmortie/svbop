@@ -1,6 +1,5 @@
 """
 Train code for image data
-By Thomas Mortier
 """
 
 import argparse
@@ -80,20 +79,9 @@ def main_flat(pathcsv,valsize,shuffle,ne,lr,bs,pat,ft,vgg,gpu,random_seed):
     if gpu:
         net.cuda()
     print("DONE!\n\n")
-    if ft:
-        print("START TRAINING ENDPART FLAT MCC MODEL ON {0}...".format(pathcsv))
-        # start model training
-        net.train_model(ne,lr)
-        print("DONE!\n\n")
-        print("START FINETUNING FLAT MCC MODEL ON {0}...".format(pathcsv))
-        # start model training
-        net.train_model(int(ne*0.5),lr,ft=ft,verbose=False)
-        print("DONE!\n\n")
-    else:
-        print("START TRAINING FLAT MCC MODEL ON {0}".format(pathcsv))
-        # start model training
-        net.train_model(ne,lr)
-        print("DONE!\n\n")
+    print("START TRAINING FLAT MCC MODEL ON {0}...".format(pathcsv))
+    net.train_model(ne,lr,ft=ft)
+    print("DONE!\n\n")
     # save trained model
     net.save_state("FLAT_MCC_TRAIN_{0}_{1}".format(stringify([valsize,shuffle,ne,lr,bs,pat,ft,vgg]),pathcsv.split("/")[-2]), verbose=True)
 
@@ -126,9 +114,14 @@ def main_hierarchical(pathcsv,struct,learns,k,valsize,shuffle,ne,lr,bs,pat,ft,vg
         if not learns:
             struct = ast.literal_eval(struct)
         else:
+            # create random hierarchy
             treegen = tg.TreeGenerator(num_classes)
             struct = treegen.GenerateHierarchy(m_s=1)
-
+            # and save to wd
+            struct_text = str(struct).replace(' ','')
+            with open("/".join(pathcsv.split("/")[0:-1])+"/"+"hierarchy_random.txt", "w") as h_file:
+                print(f"{struct_text}", file=h_file)
+                
         num_nodes = len(struct)
         indices = list(range(num_samples))
         split = int(np.floor(valsize * num_samples))
@@ -164,20 +157,9 @@ def main_hierarchical(pathcsv,struct,learns,k,valsize,shuffle,ne,lr,bs,pat,ft,vg
         if gpu:
             net.cuda()
         print("DONE!\n\n")
-        if ft:
-            print("START TRAINING ENDPART HIERARCHICAL MCC MODEL ON {0}...".format(pathcsv))
-            # start model training
-            net.train_model(ne,lr)
-            print("DONE!\n\n")
-            print("START FINETUNING HIERARCHICAL MCC MODEL ON {0}...".format(pathcsv))
-            # start model training
-            net.train_model(int(ne*0.5),lr,ft=ft,verbose=False)
-            print("DONE!\n\n")
-        else:
-            print("START TRAINING HIERARCHICAL MCC MODEL ON {0}...".format(pathcsv))
-            # start model training
-            net.train_model(ne,lr,ft=False)
-            print("DONE!\n\n")
+        print("START TRAINING HIERARCHICAL MCC MODEL ON {0}...".format(pathcsv))
+        net.train_model(ne,lr,ft=ft)
+        print("DONE!\n\n")
         # save trained model
         net.save_state("HIERARCHICAL_MCC_TRAIN_{0}_{1}".format(stringify([valsize,shuffle,ne,lr,bs,pat,ft,vgg,num_nodes,learns,k_i]),pathcsv.split("/")[-2]),verbose=True)
 
@@ -187,7 +169,7 @@ def main(args):
     parser.add_argument("-s","--struct",type=str,default="[]",required=False)
     parser.add_argument("--learns", dest="learns", action='store_true')
     parser.add_argument("--no-learns", dest="learns", action='store_false')
-    parser.add_argument("-k","--k",type=int,default=10)
+    parser.add_argument("-k","--k",type=int,default=1)
     parser.add_argument("-v","--valsize",type=float,default=0.2,required=False)
     parser.add_argument("--shuffle", dest="shuffle", action='store_true')
     parser.add_argument("--no-shuffle", dest="shuffle", action='store_false')
