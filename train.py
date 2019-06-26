@@ -1,5 +1,6 @@
 """
 Train code for image data
+By Thomas Mortier
 """
 
 import argparse
