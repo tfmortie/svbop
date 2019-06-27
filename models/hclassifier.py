@@ -353,7 +353,7 @@ class HNet(nn.Module):
                 if len(yhat.chn) == 0:
                     # no improvement, hence we can stop
                     break
-                elif
+                else:
                     yhat_children = yhat.chn
                     yhat_edge_probs = yhat(x)[x_i,:]
                     for i,yhat_child in enumerate(yhat_children):
