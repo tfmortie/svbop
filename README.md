@@ -7,7 +7,7 @@
 * A pre-trained HNet and FNet model on VOC2006 can be found under **/trained_models/**.
 
 * HNet is implemented in **/models/hclassifier.py**, which contains the code for the hierarchical probabilistic neural network model, as well as the RBOP
-inference algorithm. Note that the hierarchical softmax layer is not (yet) optimized for mini-batch training. However, in extreme multi-class settings this becomes neglectible.
+inference algorithm. Note that the hierarchical softmax layer is not (yet) optimized for mini-batch training. 
 
 * FNet is implemented in */models/fclassifier.py*, which contains the 
 code for the flat probabilistic neural network model, as well as the UBOP 
