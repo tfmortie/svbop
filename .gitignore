@@ -1,0 +1,7 @@
+.vscode/
+settings.json
+*.dSYM
+*.out
+svp.code-workspace
+data/
+cpp/data/
