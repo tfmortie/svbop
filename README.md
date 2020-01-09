@@ -1,6 +1,6 @@
 # Set-Valued Prediction in Flat and Hierarchical Multi-Class Classification
 
-*Python and C++ implementation for [arXiv paper](https://arxiv.org/abs/1906.08129) about set-valued prediction in multi-class classifcation.*
+*Python and C++ implementation (in progress) for [arXiv paper](https://arxiv.org/abs/1906.08129) about set-valued prediction in multi-class classifcation.*
 
 ## Getting started
 
