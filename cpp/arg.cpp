@@ -23,6 +23,7 @@ void showHelp()
         -t, --type              Model type for training
                 0 := L1-regularized logistic regression
                 1 := L2-regularized logistic regression (dual)
+                2 := hierarchical softmax
         -m, --model             Model path for predicting/saving
         -h, --hierarchy         Hierarchy path for h-softmax
         -b, --bias              Bias for linear model 
@@ -80,9 +81,13 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             {
                 presult.model_type = ModelType::L1_LR_PRIMAL;
             }
-            else
+            else if (static_cast<std::string>(args[i+1]).compare("1") == 0)
             {
                 presult.model_type = ModelType::L1_LR_DUAL;
+            }
+            else
+            {
+                presult.model_type = ModelType::HS;
             }
             ++i;
         }

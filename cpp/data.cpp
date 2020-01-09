@@ -93,8 +93,7 @@ void processData(const std::string &file, problem &p)
     }
 }
 
-// TODO
-void processHierarchy(const std:: string &file)
+std::vector<std::vector<int>> processHierarchy(const std:: string &file)
 {
     // first check if file only consists of one line 
     if (getSizeData(file) > 1)
@@ -104,18 +103,50 @@ void processHierarchy(const std:: string &file)
     }
     std::ifstream in {file};
     std::string line;
-    unsigned int i {0};
+    std::vector<std::vector<int>> h_struct;
     try
     {
         while (std::getline(in, line))
         {
-            
+            // remove leading and trailing garbage
+            line = line.substr(2, line.length()-4);
+            // as long as we have more than one index array continue
+            while (line.find(ARRDELIM) != std::string::npos)
+            {
+                auto delim_loc {line.find(ARRDELIM)};
+                // get string representation for array
+                std::string temp_arr_str {line.substr(0, delim_loc)};
+                // convert to vector 
+                h_struct.push_back(arrToVec(temp_arr_str));
+                // get remaining string
+                line = line.substr(delim_loc+3, line.length()-delim_loc-ARRDELIM.length());
+            }
+            // make sure to process the last bit of our line and we are done
+            h_struct.push_back(arrToVec(line));        
         }
+
     }
     catch(std::ifstream::failure e)
     {
         std::cerr << "[error] Exception " << e.what() << " catched!\n";
         exit(1);
     }
+    return h_struct;
+}
+
+std::vector<int> arrToVec(const std::string &s)
+{
+    std::string const DELIM {","};
+    std::vector<int> ret_vec {};
+    std::string substr {s};
+    while (substr.find(DELIM) != std::string::npos)
+    {
+        auto delim_loc {substr.find(DELIM)};
+        ret_vec.push_back(std::stoi(substr.substr(0, delim_loc)));
+        substr = substr.substr(delim_loc+1, substr.length()-delim_loc-DELIM.length());
+    }
+    // make sure to process the last bit of our string
+    ret_vec.push_back(std::stoi(substr));
+    return ret_vec;
 }
 
