@@ -3,6 +3,8 @@
 
 #define LIBLINEAR_VERSION 230
 
+#include <vector>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +23,7 @@ struct problem
 	double *y;
 	struct feature_node **x;
 	double bias;            /* < 0 if no bias term */
+	std::vector<std::vector<int>> h_struct;		/* needed for hierarchical softmax */
 };
 
 enum { L2R_LR, L2R_L2LOSS_SVC_DUAL, L2R_L2LOSS_SVC, L2R_L1LOSS_SVC_DUAL, MCSVM_CS, L1R_L2LOSS_SVC, L1R_LR, L2R_LR_DUAL, L2R_L2LOSS_SVR = 11, L2R_L2LOSS_SVR_DUAL, L2R_L1LOSS_SVR_DUAL }; /* solver_type */

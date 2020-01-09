@@ -49,11 +49,9 @@ int main(int argc, char** argv)
         }
         else
         {
-            // get hierarchy struct in order to create hierarchical model
-            std::vector<std::vector<int>> hierarchy_struct {processHierarchy(parser_result.hierarchy_path)};
             // print out struct (TODO: delete)
             std::cout << "BEGIN STRUCT HIERARCHY:\n";
-            for (auto &v : hierarchy_struct)
+            for (auto &v : prob.h_struct)
             {
                 std::cout << "[";
                 for (auto &el: v)

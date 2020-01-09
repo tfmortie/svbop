@@ -23,6 +23,9 @@ void getProblem(ParseResult &presult, problem &p)
     p.y = new double[static_cast<unsigned long>(p.l)];
     p.x = new feature_node*[static_cast<unsigned long>(p.l)];
     processData(presult.file_path, p);
+    // add hierarchy struct in case of hierarchical model
+    if (presult.model_type == ModelType::HS)
+        p.h_struct = processHierarchy(presult.hierarchy_path);
 }
 
 int getSizeData(const std::string &file)
