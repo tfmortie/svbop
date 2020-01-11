@@ -11,18 +11,46 @@ Header hierarchical model
 
 #include "model/model.h"
 #include <iostream>
+#include <vector>
+#include <string>
 
-class HierModel : public Model
+struct W_hnode
+{
+    double** value; /* should be D x K */
+    unsigned long d; /* D */
+    unsigned long k; /* K */
+};
+
+/*
+Class which represents a node in HierModel
+*/
+class HNode
 {
     private:
-        int* class_to_label_dict;
-        void free();
+        W_hnode w;
+        void free();   
 
+    public: 
+        HNode(const problem &prob); /* will be called on root */
+        HNode(std::vector<int> y, const problem &prob);
+        ~HNode();
+        std::vector<int> y;
+        std::vector<HNode*> chn;
+        const problem &p;
+        void addChildNode(std::vector<int> y, const problem &p);     
+        void print();
+};
+
+class HierModel
+{
+    private:
+        HNode* root;
+        
     public:
-        HierModel(const problem* prob, const parameter* param);
-        HierModel(const char* model_file_name);
+        HierModel(const problem &prob);
         ~HierModel();
 
+        void printStructure();
         void printInfo();
         void performCrossValidation();
         void fit();

@@ -11,6 +11,7 @@ Main file
 #include "arg.h"
 #include "data.h"
 #include "model/flat.h"
+#include "model/hierarchical.h"
 #include "liblinear/linear.h"
 
 int main(int argc, char** argv)
@@ -61,6 +62,8 @@ int main(int argc, char** argv)
                 std::cout << "]\n";
             }
             std::cout << "END STRUCT HIERARCHY:\n";
+            HierModel model {prob};
+            model.printStructure(); // TODO: remove (debug)
         }
     }
     else

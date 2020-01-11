@@ -6,6 +6,7 @@ Abstract class model
 
 // TODO: finalize comments
 // TODO: decide on making Model class abstract...
+// TODO: decide whether to keep this class or not 
 
 #ifndef MODEL_U
 #define MODEL_U
