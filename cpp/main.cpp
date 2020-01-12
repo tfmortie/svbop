@@ -50,20 +50,8 @@ int main(int argc, char** argv)
         }
         else
         {
-            // print out struct (TODO: delete)
-            std::cout << "BEGIN STRUCT HIERARCHY:\n";
-            for (auto &v : prob.h_struct)
-            {
-                std::cout << "[";
-                for (auto &el: v)
-                {
-                    std::cout << el << ",";
-                }
-                std::cout << "]\n";
-            }
-            std::cout << "END STRUCT HIERARCHY:\n";
             HierModel model {prob};
-            model.printStructure(); // TODO: remove (debug)
+            model.printInfo(); // TODO: remove (debug)
         }
     }
     else

@@ -36,7 +36,6 @@ class HNode
         ~HNode();
         std::vector<int> y;
         std::vector<HNode*> chn;
-        const problem &p;
         void addChildNode(std::vector<int> y, const problem &p);     
         void print();
 };
@@ -45,12 +44,14 @@ class HierModel
 {
     private:
         HNode* root;
+        const problem &prob;
         
     public:
         HierModel(const problem &prob);
         ~HierModel();
 
-        void printStructure();
+        void printStruct();
+        void print();
         void printInfo();
         void performCrossValidation();
         void fit();
