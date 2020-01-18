@@ -52,6 +52,7 @@ int main(int argc, char** argv)
         {
             HierModel model {prob};
             model.printInfo(); // TODO: remove (debug)
+            model.fit(0.01);
         }
     }
     else

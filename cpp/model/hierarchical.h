@@ -44,10 +44,10 @@ class HNode
         HNode(const problem &prob); /* will be called on root */
         HNode(std::vector<int> y, const problem &prob);
         ~HNode();
-        
+
         std::vector<int> y;
         std::vector<HNode*> chn;
-        double forward(const feature_node *x, const long ind); /* forward pass */
+        double update(const feature_node *x, const long ind, const float lr); /* forward & backward pass */
         void backward(const feature_node *x, const float lr); /* backward pass */
         void addChildNode(std::vector<int> y, const problem &p);     
         void print();
@@ -67,7 +67,7 @@ class HierModel
         void print();
         void printInfo();
         void performCrossValidation();
-        void fit();
+        void fit(const float lr);
         double predict(const feature_node *x);
         void predict_proba(const feature_node* x, double* prob_estimates);
         void checkParam();

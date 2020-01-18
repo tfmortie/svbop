@@ -14,6 +14,7 @@ Implementation of hierarchical model
 #include <algorithm>
 #include <sstream>
 #include <queue>
+#include <cmath>
 
 HNode::HNode(const problem &prob) 
 {
@@ -43,8 +44,9 @@ HNode::~HNode()
     this->free();
 }
 
-double HNode::forward(const feature_node *x, const long ind)
+double HNode::update(const feature_node *x, const long ind, const float lr)
 {
+    // forward step
     double* o {new double[this->W.k]}; // array of exp
     // convert feature_node arr to double arr
     double* x_arr {ftvToArr(x, this->W.d)}; 
@@ -55,10 +57,13 @@ double HNode::forward(const feature_node *x, const long ind)
     // set grad loc and delta's 
     this->D.ind = ind;
     dscal((o[ind]-1), this->D.value, this->D.d);
+    // backward step
+    this->backward(x, lr);
     double p {o[ind]};
     // delete
     delete[] x_arr;
     delete[] o;
+
     return p;
 }
 
@@ -114,7 +119,7 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
             // set k size attribute
             this->W.k = this->chn.size();
             // init W
-            initUW(-1/this->W.d, -1/this->W.d, this->W.value, this->W.d, this->W.k);
+            initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
         }
     }
     else
@@ -225,9 +230,48 @@ void HierModel::performCrossValidation()
     //TODO: implement!
 }
 
-void HierModel::fit()
+void HierModel::fit(const float lr)
 {
-    //TODO: implement!
+    if (root != nullptr)
+    {
+        // run over each instance 
+        for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
+        {
+            double loss {1};
+            feature_node* x {this->prob.x[n]};
+            std::vector<int> y {(int) this->prob.y[n]}; // our class 
+            HNode* visit_node = this->root;
+            while(!visit_node->chn.empty())
+            {
+                int ind = -1;
+                for (unsigned int i = 0; i < visit_node->chn.size(); ++i)
+                {
+                    if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
+                    {
+                        ind = static_cast<int>(i);
+                        break;
+                    }
+                }
+                if (ind != -1)
+                {
+                    loss += log(visit_node->update(x, static_cast<long>(ind), lr));
+                    visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
+                }
+                else
+                {
+                    std::cerr << "[error] label " << y[0] << " not found in hierarchy!\n";
+                    exit(1);
+                }
+            }
+            // print out loss
+            std::cout << "Iteration " << n << ": loss " << (-loss) << '\n';
+        }
+    }
+    else
+    {
+        std::cerr << "[warning] Model has not been fitted yet\n";
+        exit(1);
+    }
 }
 
 // predict class with highest probability 
