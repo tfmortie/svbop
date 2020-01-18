@@ -30,8 +30,6 @@ struct d_hnode
     long ind; /* index to which delta applies */
 };
 
-void softmax(double* o, const unsigned long k);
-
 /*
 Class which represents a node in HierModel
 */
@@ -46,6 +44,7 @@ class HNode
         HNode(const problem &prob); /* will be called on root */
         HNode(std::vector<int> y, const problem &prob);
         ~HNode();
+        
         std::vector<int> y;
         std::vector<HNode*> chn;
         double forward(const feature_node *x, const long ind); /* forward pass */

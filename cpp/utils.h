@@ -13,6 +13,7 @@ void dgemv(const double alpha, const double** W, const double* x, double* y, con
 void dscal(const double alpha, double* x, const unsigned long d);
 void dsubmv(const double alpha, double** W, const double* x, const unsigned long d, const unsigned long k, const unsigned long i);
 void softmax(double* x, const unsigned long d);
+void initUW(const double min, const double max, double** W, const unsigned long d, const unsigned long k);
 double* ftvToArr(const feature_node *x, const unsigned long size);
 
 #endif

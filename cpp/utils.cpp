@@ -8,6 +8,7 @@ Some important math operations
 #include "liblinear/linear.h"
 #include <cmath>
 #include <assert.h>
+#include <random>
 
 // TODO: in future perhaps use LAPACK/BLAS for matrix/vector multiplications...
 
@@ -53,6 +54,20 @@ void softmax(double* x, const unsigned long d)
         Z += exp(x[i]);
     // divide x by denum
     dscal(1/Z, x, d);
+}
+
+void initUW(const double min, const double max, double** W, const unsigned long d, const unsigned long k)
+{
+    // create rng
+    std::random_device rd; /* get seed for the rn engine */
+    std::mt19937 gen(rd()); /* mersenne_twister_engine seeded with rd() */
+    std::uniform_real_distribution<> dis(min, max);
+    // init W
+    for (unsigned long i=0; i<d; ++i)
+    {
+        for (unsigned long j=0; j<k; ++j)
+            W[i][j] = dis(gen);
+    }
 }
 
 /*

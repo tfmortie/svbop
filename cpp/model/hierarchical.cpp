@@ -18,9 +18,9 @@ Implementation of hierarchical model
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+    //this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
     // init D vector
-    this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), -1};
+    this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
     // set y attribute of this node (i.e., root)
     this->y = prob.h_struct[0];
     // now construct tree
@@ -33,8 +33,8 @@ HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
     // only init D if internal node!
     if (y.size() > 1)
     {
-        this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
-        this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), -1};
+        //this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+        this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
     }
 } 
 
@@ -66,7 +66,6 @@ void HNode::backward(const feature_node *x, const float lr)
 {
     if (this->D.ind != -1)
     {    
-
         dsubmv(lr, this->W.value, this->D.value, this->D.d, this->W.k, static_cast<unsigned long>(this->D.ind));
         // reset gradient
         this->D.ind = -1;
@@ -114,6 +113,8 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
             }
             // set k size attribute
             this->W.k = this->chn.size();
+            // init W
+            initUW(-1/this->W.d, -1/this->W.d, this->W.value, this->W.d, this->W.k);
         }
     }
     else
@@ -222,7 +223,6 @@ void HierModel::printInfo()
 void HierModel::performCrossValidation()
 {
     //TODO: implement!
-
 }
 
 void HierModel::fit()
