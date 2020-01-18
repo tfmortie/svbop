@@ -5,8 +5,10 @@ Implementation of hierarchical model
 */
 
 // TODO: finalize comments
+// TODO: initializers!!!!
 
 #include "model/hierarchical.h"
+#include "utils.h"
 #include <iostream>
 #include <utility> 
 #include <algorithm>
@@ -16,7 +18,9 @@ Implementation of hierarchical model
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    this->w = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+    this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+    // init D vector
+    this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), -1};
     // set y attribute of this node (i.e., root)
     this->y = prob.h_struct[0];
     // now construct tree
@@ -26,14 +30,52 @@ HNode::HNode(const problem &prob)
 
 HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
 {
-    // only init W if internal node!
+    // only init D if internal node!
     if (y.size() > 1)
-        this->w = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+    {
+        this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+        this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), -1};
+    }
 } 
 
 HNode::~HNode()
 {
     this->free();
+}
+
+double HNode::forward(const feature_node *x, const long ind)
+{
+    double* o {new double[this->W.k]}; // array of exp
+    // convert feature_node arr to double arr
+    double* x_arr {ftvToArr(x, this->W.d)}; 
+    // Wtx
+    dgemv(1.0, const_cast<const double **>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    // apply softmax
+    softmax(o, this->W.k); 
+    // set grad loc and delta's 
+    this->D.ind = ind;
+    dscal((o[ind]-1), this->D.value, this->D.d);
+    double p {o[ind]};
+    // delete
+    delete[] x_arr;
+    delete[] o;
+    return p;
+}
+
+void HNode::backward(const feature_node *x, const float lr)
+{
+    if (this->D.ind != -1)
+    {    
+
+        dsubmv(lr, this->W.value, this->D.value, this->D.d, this->W.k, static_cast<unsigned long>(this->D.ind));
+        // reset gradient
+        this->D.ind = -1;
+    }
+    else
+    {
+        std::cerr << "[error] Backward operation without preceding forward pass!\n";
+        exit(1);
+    }
 }
 
 void HNode::addChildNode(std::vector<int> y, const problem &prob)
@@ -68,10 +110,10 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
             {
                 // allocate weight vector 
                 for (unsigned int i=0; i < static_cast<unsigned int>(prob.n); ++i)
-                    this->w.value[i] = new double[this->chn.size()];
+                    this->W.value[i] = new double[this->chn.size()];
             }
             // set k size attribute
-            this->w.k = this->chn.size();
+            this->W.k = this->chn.size();
         }
     }
     else
@@ -86,10 +128,11 @@ void HNode::free()
 {
     if (this->y.size() > 1)
     { 
-        for (unsigned int i = 0; i < static_cast<unsigned int>(this->w.d); ++i)
-            delete[] this->w.value[i];
+        for (unsigned int i = 0; i < static_cast<unsigned int>(this->W.d); ++i)
+            delete[] this->W.value[i];
 
-        delete[] this->w.value;
+        delete[] this->W.value;
+        delete[] this->D.value;
     }
 }  
 

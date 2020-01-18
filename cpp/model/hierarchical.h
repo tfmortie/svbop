@@ -14,6 +14,7 @@ Header hierarchical model
 #include <vector>
 #include <string>
 
+/* Weight matrix */
 struct W_hnode
 {
     double** value; /* should be D x K */
@@ -21,13 +22,24 @@ struct W_hnode
     unsigned long k; /* K */
 };
 
+/* Delta for backward pass */
+struct d_hnode
+{
+    double* value;
+    unsigned long d; /* D */
+    long ind; /* index to which delta applies */
+};
+
+void softmax(double* o, const unsigned long k);
+
 /*
 Class which represents a node in HierModel
 */
 class HNode
 {
     private:
-        W_hnode w;
+        W_hnode W;
+        d_hnode D;
         void free();   
 
     public: 
@@ -36,6 +48,8 @@ class HNode
         ~HNode();
         std::vector<int> y;
         std::vector<HNode*> chn;
+        double forward(const feature_node *x, const long ind); /* forward pass */
+        void backward(const feature_node *x, const float lr); /* backward pass */
         void addChildNode(std::vector<int> y, const problem &p);     
         void print();
 };
