@@ -50,9 +50,11 @@ int main(int argc, char** argv)
         }
         else
         {
-            HierModel model {prob};
-            model.printInfo(); // TODO: remove (debug)
-            model.fit(0.01);
+            HierModel* model = new HierModel(prob);
+            model->printInfo(); // TODO: remove (debug)
+            model->fit(50, 0.01);
+            std::cout << "FITTED!\n";
+            delete model;
         }
     }
     else

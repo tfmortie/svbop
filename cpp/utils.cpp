@@ -9,6 +9,7 @@ Some important math operations
 #include <cmath>
 #include <assert.h>
 #include <random>
+#include <iostream>
 
 // TODO: in future perhaps use LAPACK/BLAS for matrix/vector multiplications...
 
@@ -51,7 +52,10 @@ void softmax(double* x, const unsigned long d)
     // first calculate Z 
     double Z {0.0};
     for (unsigned long i=0; i<d; ++i)
-        Z += exp(x[i]);
+    {
+        Z += std::exp(x[i]);
+        x[i] = std::exp(x[i]);
+    }
     // divide x by denum
     dscal(1/Z, x, d);
 }
@@ -77,9 +81,9 @@ double* ftvToArr(const feature_node *x, const unsigned long size)
 {
     double* arr = new double[size] {0};
     unsigned long i = 0;
-    while(x[i].value != -1)
+    while(x[i].index != -1)
     {
-        arr[x[i].index-1] = x[i].value;
+        arr[x[i].index-1] = x[i].value; 
         ++i;
     }
     return arr;

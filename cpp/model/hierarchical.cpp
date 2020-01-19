@@ -19,14 +19,16 @@ Implementation of hierarchical model
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    //this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+    this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
     // init D vector
     this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
     // set y attribute of this node (i.e., root)
     this->y = prob.h_struct[0];
     // now construct tree
     for (unsigned int i = 1; i < prob.h_struct.size(); ++i)
+    {
         this->addChildNode(prob.h_struct[i], prob);    
+    }
 }   
 
 HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
@@ -34,7 +36,9 @@ HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
     // only init D if internal node!
     if (y.size() > 1)
     {
-        //this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+        // first init W matrix
+        this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
+        // init D vector
         this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
     }
 } 
@@ -63,7 +67,6 @@ double HNode::update(const feature_node *x, const long ind, const float lr)
     // delete
     delete[] x_arr;
     delete[] o;
-
     return p;
 }
 
@@ -230,41 +233,46 @@ void HierModel::performCrossValidation()
     //TODO: implement!
 }
 
-void HierModel::fit(const float lr)
+void HierModel::fit(const unsigned int ne, const float lr)
 {
     if (root != nullptr)
     {
-        // run over each instance 
-        for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
+        unsigned int cntr {0};
+        while(cntr<ne)
         {
-            double loss {1};
-            feature_node* x {this->prob.x[n]};
-            std::vector<int> y {(int) this->prob.y[n]}; // our class 
-            HNode* visit_node = this->root;
-            while(!visit_node->chn.empty())
+            // run over each instance 
+            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
             {
-                int ind = -1;
-                for (unsigned int i = 0; i < visit_node->chn.size(); ++i)
+                double loss {1.0};
+                feature_node* x {this->prob.x[n]};
+                std::vector<int> y {(int) this->prob.y[n]}; // our class 
+                HNode* visit_node = this->root;
+                while(!visit_node->chn.empty())
                 {
-                    if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
+                    int ind = -1;
+                    for (unsigned int i = 0; i < visit_node->chn.size(); ++i)
                     {
-                        ind = static_cast<int>(i);
-                        break;
+                        if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
+                        {
+                            ind = static_cast<int>(i);
+                            break;
+                        }  
+                    }
+                    if (ind != -1)
+                    {
+                        loss += log(visit_node->update(x, static_cast<long>(ind), lr));
+                        visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
+                    }
+                    else
+                    {
+                        std::cerr << "[error] label " << y[0] << " not found in hierarchy!\n";
+                        exit(1);
                     }
                 }
-                if (ind != -1)
-                {
-                    loss += log(visit_node->update(x, static_cast<long>(ind), lr));
-                    visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
-                }
-                else
-                {
-                    std::cerr << "[error] label " << y[0] << " not found in hierarchy!\n";
-                    exit(1);
-                }
+                // print out loss
+                std::cout << "Iteration " << n << ": loss " << (-loss) << '\n';
             }
-            // print out loss
-            std::cout << "Iteration " << n << ": loss " << (-loss) << '\n';
+            ++cntr;
         }
     }
     else

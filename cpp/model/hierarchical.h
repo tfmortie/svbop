@@ -67,7 +67,7 @@ class HierModel
         void print();
         void printInfo();
         void performCrossValidation();
-        void fit(const float lr);
+        void fit(const unsigned int ne, const float lr);
         double predict(const feature_node *x);
         void predict_proba(const feature_node* x, double* prob_estimates);
         void checkParam();
