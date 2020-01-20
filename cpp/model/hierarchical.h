@@ -22,12 +22,12 @@ struct W_hnode
     unsigned long k; /* K */
 };
 
-/* Delta for backward pass */
-struct d_hnode
+/* Delta matrix for backward pass */
+struct D_hnode
 {
-    double* value;
+    double** value;
     unsigned long d; /* D */
-    long ind; /* index to which delta applies */
+    unsigned long k; /* K */
 };
 
 /*
@@ -37,7 +37,7 @@ class HNode
 {
     private:
         W_hnode W;
-        d_hnode D;
+        D_hnode D;
         void free();   
 
     public: 

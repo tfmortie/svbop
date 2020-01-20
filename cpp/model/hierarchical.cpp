@@ -21,14 +21,12 @@ HNode::HNode(const problem &prob)
     // first init W matrix
     this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
     // init D vector
-    this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
+    this->D = D_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
     // set y attribute of this node (i.e., root)
     this->y = prob.h_struct[0];
     // now construct tree
     for (unsigned int i = 1; i < prob.h_struct.size(); ++i)
-    {
         this->addChildNode(prob.h_struct[i], prob);    
-    }
 }   
 
 HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
@@ -39,7 +37,7 @@ HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
         // first init W matrix
         this->W = W_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
         // init D vector
-        this->D = d_hnode{new double[static_cast<unsigned long>(prob.n)]{0}, static_cast<unsigned long>(prob.n), -1};
+        this->D = D_hnode{new double*[static_cast<unsigned long>(prob.n)], static_cast<unsigned long>(prob.n), 0};
     }
 } 
 
@@ -55,12 +53,19 @@ double HNode::update(const feature_node *x, const long ind, const float lr)
     // convert feature_node arr to double arr
     double* x_arr {ftvToArr(x, this->W.d)}; 
     // Wtx
-    dgemv(1.0, const_cast<const double **>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
     // apply softmax
     softmax(o, this->W.k); 
-    // set grad loc and delta's 
-    this->D.ind = ind;
-    dscal((o[ind]-1), this->D.value, this->D.d);
+    // set delta's 
+    double t {0.0};
+    for(unsigned long i=0; i<this->D.k; ++i)
+    {
+        if(static_cast<const long&>(i) == ind)
+            t = 1.0;
+        else
+            t = 0.0;
+        dvscalm((o[ind]-t), x_arr, this->D.value, this->D.d, this->D.k, i);
+    }
     // backward step
     this->backward(x, lr);
     double p {o[ind]};
@@ -72,17 +77,8 @@ double HNode::update(const feature_node *x, const long ind, const float lr)
 
 void HNode::backward(const feature_node *x, const float lr)
 {
-    if (this->D.ind != -1)
-    {    
-        dsubmv(lr, this->W.value, this->D.value, this->D.d, this->W.k, static_cast<unsigned long>(this->D.ind));
-        // reset gradient
-        this->D.ind = -1;
-    }
-    else
-    {
-        std::cerr << "[error] Backward operation without preceding forward pass!\n";
-        exit(1);
-    }
+    for (unsigned long i=0; i<this->W.k; ++i)
+        dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
 }
 
 void HNode::addChildNode(std::vector<int> y, const problem &prob)
@@ -115,12 +111,16 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
             // check if the current node has all its children
             if (tot_len_y_chn == this->y.size())
             {
-                // allocate weight vector 
+                // allocate weight and delta vectors 
                 for (unsigned int i=0; i < static_cast<unsigned int>(prob.n); ++i)
+                {
                     this->W.value[i] = new double[this->chn.size()];
+                    this->D.value[i] = new double[this->chn.size()]{0};
+                }
             }
             // set k size attribute
             this->W.k = this->chn.size();
+            this->D.k = this->chn.size();
             // init W
             initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
         }
@@ -138,8 +138,10 @@ void HNode::free()
     if (this->y.size() > 1)
     { 
         for (unsigned int i = 0; i < static_cast<unsigned int>(this->W.d); ++i)
+        {
             delete[] this->W.value[i];
-
+            delete[] this->D.value[i];
+        }
         delete[] this->W.value;
         delete[] this->D.value;
     }
@@ -241,9 +243,10 @@ void HierModel::fit(const unsigned int ne, const float lr)
         while(cntr<ne)
         {
             // run over each instance 
+            //for (unsigned int n = 0; n<10; ++n) /* debug purposes */
             for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
             {
-                double loss {1.0};
+                double loss {0.0};
                 feature_node* x {this->prob.x[n]};
                 std::vector<int> y {(int) this->prob.y[n]}; // our class 
                 HNode* visit_node = this->root;
@@ -260,7 +263,7 @@ void HierModel::fit(const unsigned int ne, const float lr)
                     }
                     if (ind != -1)
                     {
-                        loss += log(visit_node->update(x, static_cast<long>(ind), lr));
+                        loss += std::log(visit_node->update(x, static_cast<long>(ind), lr));
                         visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
                     }
                     else

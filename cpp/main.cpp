@@ -52,8 +52,7 @@ int main(int argc, char** argv)
         {
             HierModel* model = new HierModel(prob);
             model->printInfo(); // TODO: remove (debug)
-            model->fit(50, 0.01);
-            std::cout << "FITTED!\n";
+            model->fit(1, 0.001);
             delete model;
         }
     }
