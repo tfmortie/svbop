@@ -93,7 +93,7 @@ TODO: let code work with sparse feature vectors!
 */
 double* ftvToArr(const feature_node *x, const unsigned long size)
 {
-    double* arr = new double[size] {0};
+    double* arr = new double[size]();
     unsigned long i = 0;
     while(x[i].index != -1)
     {

@@ -51,7 +51,7 @@ HNode::~HNode()
 unsigned int HNode::predict(const feature_node *x)
 {
     // forward step
-    double* o {new double[this->W.k]}; // array of exp
+    double* o {new double[this->W.k]()}; // array of exp
     // convert feature_node arr to double arr
     double* x_arr {ftvToArr(x, this->W.d)}; 
     // Wtx
@@ -68,7 +68,7 @@ unsigned int HNode::predict(const feature_node *x)
 double HNode::update(const feature_node *x, const long ind, const float lr)
 {
     // forward step
-    double* o {new double[this->W.k]}; // array of exp
+    double* o {new double[this->W.k]()}; // array of exp
     // convert feature_node arr to double arr
     double* x_arr {ftvToArr(x, this->W.d)}; 
     // Wtx
@@ -83,7 +83,8 @@ double HNode::update(const feature_node *x, const long ind, const float lr)
             t = 1.0;
         else
             t = 0.0;
-        dvscalm((o[ind]-t), x_arr, this->D.value, this->D.d, this->D.k, i);
+
+        dvscalm((o[i]-t), x_arr, this->D.value, this->D.d, this->D.k, i);
     }
     // backward step
     this->backward(x, lr);
@@ -274,7 +275,7 @@ void HierModel::fit(const unsigned int ne, const float lr)
                 while(!visit_node->chn.empty())
                 {
                     int ind = -1;
-                    for (unsigned int i = 0; i < visit_node->chn.size(); ++i)
+                    for (unsigned int i = 0; i<visit_node->chn.size(); ++i)
                     { 
                         if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
                         {

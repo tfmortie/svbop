@@ -52,7 +52,7 @@ int main(int argc, char** argv)
         {
             HierModel* model = new HierModel(prob);
             model->printInfo(); // TODO: remove (debug)
-            model->fit(150, 0.0000001);
+            model->fit(20, 0.000001);
             // TODO: remove below (debug)
             double acc {0.0};
             for (unsigned int n = 0; n<static_cast<unsigned int>(prob.l); ++n)
@@ -60,8 +60,8 @@ int main(int argc, char** argv)
             {
                 double pred {model->predict(prob.x[n])};
                 double targ {prob.y[n]};
-                //std::cout << "Pred: " << pred << '\n';
-                //std::cout << "Targ: " << targ << '\n';
+                std::cout << "Pred: " << pred << '\n';
+                std::cout << "Targ: " << targ << '\n';
                 acc += (pred==targ);
             }
             std::cout << "Fitting accuracy: " << (acc/prob.l)*100.0 << "% \n";
