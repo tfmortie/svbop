@@ -13,6 +13,7 @@ Some important math operations
 #include <algorithm>
 
 // TODO: in future perhaps use LAPACK/BLAS for matrix/vector multiplications...
+// TODO: optimize (allow sparse features (feature_node))!
 
 /*
 y = alpha*W.Tx

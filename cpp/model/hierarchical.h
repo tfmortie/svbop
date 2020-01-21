@@ -5,7 +5,6 @@ Header hierarchical model
 */
 
 // TODO: finalize comments
-// TODO: change int type of y to unsigned long!
 
 #ifndef HIER_H
 #define HIER_H
@@ -51,6 +50,7 @@ class HNode
         unsigned int predict(const feature_node *x); /* predict child/branch */
         double update(const feature_node *x, const long ind, const float lr); /* forward & backward pass */
         void backward(const feature_node *x, const float lr); /* backward pass */
+        void reset();
         void addChildNode(std::vector<int> y, const problem &p);     
         void print();
 };
@@ -68,11 +68,11 @@ class HierModel
         void printStruct();
         void print();
         void printInfo();
-        void performCrossValidation();
-        void fit(const unsigned int ne, const float lr);
+        void performCrossValidation(unsigned int k, const unsigned int ne, const float lr);
+        void reset();
+        void fit(const unsigned int ne, const float lr, const std::vector<unsigned int>& ign_index = {}, const bool verbose = 1);
         double predict(const feature_node* x);
         void predict_proba(const feature_node* x, double* prob_estimates);
-        void checkParam();
         int getNrClass();
         void save(const char* model_file_name);
 };

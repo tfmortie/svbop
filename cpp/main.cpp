@@ -52,20 +52,19 @@ int main(int argc, char** argv)
         {
             HierModel* model = new HierModel(prob);
             model->printInfo(); // TODO: remove (debug)
-            model->fit(20, 0.000001);
+            model->fit(10, 0.0001);
             // TODO: remove below (debug)
             double acc {0.0};
             for (unsigned int n = 0; n<static_cast<unsigned int>(prob.l); ++n)
-            //for (unsigned int n = 0; n<10; ++n)
             {
                 double pred {model->predict(prob.x[n])};
                 double targ {prob.y[n]};
-                std::cout << "Pred: " << pred << '\n';
-                std::cout << "Targ: " << targ << '\n';
                 acc += (pred==targ);
             }
             std::cout << "Fitting accuracy: " << (acc/prob.l)*100.0 << "% \n";
-            //std::cout << "Fitting accuracy: " << (acc/10.0)*100.0 << '\n';
+            std::cout << '\n';
+            // TODO: remove below (debug)
+            model->performCrossValidation(4, 10, 0.0001);
             delete model;
         }
     }

@@ -5,7 +5,8 @@ Implementation of hierarchical model
 */
 
 // TODO: finalize comments
-// TODO: initializers!!!!
+// TODO: optimize (allow sparse features (feature_node))!
+// TODO: change int type of y to unsigned long!
 
 #include "model/hierarchical.h"
 #include "utils.h"
@@ -17,6 +18,7 @@ Implementation of hierarchical model
 #include <cmath>
 #include <iterator>
 #include <vector>
+#include <random>
 
 HNode::HNode(const problem &prob) 
 {
@@ -101,6 +103,12 @@ void HNode::backward(const feature_node *x, const float lr)
         dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
 }
 
+void HNode::reset()
+{
+    // reinitialize W
+    initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+}
+
 void HNode::addChildNode(std::vector<int> y, const problem &prob)
 {
     // todo: optimize?
@@ -172,11 +180,11 @@ void HNode::print()
     std::ostringstream oss;
     if(!this->y.empty())
     {
-        // Convert all but the last element to avoid a trailing ","
+        // convert all but the last element to avoid a trailing ","
         std::copy(this->y.begin(), this->y.end()-1,
         std::ostream_iterator<int>(oss, ","));
 
-        // Now add the last element with no delimiter
+        // now add the last element with no delimiter
         oss << this->y.back();
     }
     if (this->chn.size() != 0)
@@ -250,57 +258,147 @@ void HierModel::printInfo()
     std::cout << "---------------------------------------------------\n\n";
 }
 
-void HierModel::performCrossValidation()
-{
-    //TODO: implement!
-}
-
-void HierModel::fit(const unsigned int ne, const float lr)
+void HierModel::performCrossValidation(unsigned int k, const unsigned int ne, const float lr)
 {
     if (root != nullptr)
     {
-        unsigned int cntr {0};
-        while(cntr<ne)
+        std::cout << "---- " << k << "-Fold CV ----\n";
+        // first create index vector
+        std::vector<unsigned int> ind_arr;
+        for(unsigned int i=0; i<static_cast<unsigned int>(this->prob.l); ++i)
         {
-            double e_loss {0.0};
-            // run over each instance 
-            //for (unsigned int n {0};n<10; ++n) /* debug purposes */
+            ind_arr.push_back(i);
+        }
+        // now shuffle index vector 
+        auto rng = std::default_random_engine {};
+        std::shuffle(std::begin(ind_arr), std::end(ind_arr), rng);
+        // calculate size of each test fold
+        unsigned int ns_fold {static_cast<unsigned int>(static_cast<unsigned int>(this->prob.l)/k)};
+        // start kfcv
+        unsigned int iter {0};
+        while(iter < k)
+        {
+            std::cout << "FOLD " << iter+1 << '\n';
+            // first clear weights 
+            this->reset();
+            // ectract test fold indices
+            std::vector<unsigned int>::const_iterator i_start = ind_arr.begin() + iter*ns_fold;
+            std::vector<unsigned int>::const_iterator i_stop = ind_arr.begin() + (iter+1)*ns_fold;
+            std::vector<unsigned int> testfold_ind(i_start, i_stop);
+            // now start fitting 
+            this->fit(ne, lr, testfold_ind, 0);
+            // and validate on training and test fold
+            double acc {0.0};
+            double n_cntr {0.0};
             for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
             {
-                double i_loss {0.0};
-                feature_node* x {this->prob.x[n]};
-                std::vector<int> y {(int) this->prob.y[n]}; // our class 
-                //std::cout << "Y = " << y[0] << '\n';
-                HNode* visit_node = this->root;
-                while(!visit_node->chn.empty())
+                if (std::find(testfold_ind.begin(), testfold_ind.end(), n) == testfold_ind.end())
                 {
-                    int ind = -1;
-                    for (unsigned int i = 0; i<visit_node->chn.size(); ++i)
-                    { 
-                        if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
-                        {
-                            ind = static_cast<int>(i);
-                            break;
-                        }  
-                    }
-                    if (ind != -1)
-                    {
-                        double i_p {visit_node->update(x, static_cast<long>(ind), lr)};
-                        //std::cout << "i_p: " << i_p << '\n';
-                        i_loss += std::log2((i_p<=EPS ? EPS : i_p));
-                        visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
-                    }
-                    else
-                    {
-                        std::cerr << "[error] label " << y[0] << " not found in hierarchy!\n";
-                        exit(1);
-                    }
+                    double pred {this->predict(this->prob.x[n])};
+                    double targ {this->prob.y[n]};
+                    acc += (pred==targ);
+                    n_cntr += 1.0;
                 }
-                //std::cout << "i_loss: " << -i_loss << '\n';
-                e_loss += -i_loss;
             }
-            std::cout << "Epoch " << cntr << ": loss " << (e_loss/static_cast<double>(this->prob.l)) << '\n';
-            ++cntr;
+            std::cout << "Training accuracy: " << (acc/n_cntr)*100.0 << "% \n";
+            acc = 0.0;
+            n_cntr = 0.0;
+            for (unsigned int n = 0; n<static_cast<unsigned int>(testfold_ind.size()); ++n)
+            {
+                double pred {this->predict(this->prob.x[testfold_ind[n]])};
+                double targ {this->prob.y[testfold_ind[n]]};
+                acc += (pred==targ);
+                n_cntr += 1.0;
+            }
+            std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "% \n";
+            ++iter;
+        }
+        // and finally reset again
+        this->reset();
+        std::cout << "-------------------\n\n";
+    }
+    else
+    {
+        std::cerr << "[warning] Model has not been fitted yet\n";
+        exit(1);
+    }
+}
+
+void HierModel::reset()
+{
+    if (root != nullptr)
+    {
+        std::queue<HNode*> visit_list; 
+        visit_list.push(this->root);
+        while(!visit_list.empty())
+        {
+            HNode* visit_node = visit_list.front();
+            visit_list.pop();
+            if (!visit_node->chn.empty())
+            {
+                for(auto* c : visit_node->chn)
+                    visit_list.push(c);
+
+                // reinitialize weights and rest delta's
+                visit_node->reset();
+            }            
+        }
+    }
+    else
+    {
+        std::cerr << "[warning] Model has not been fitted yet\n";
+        exit(1);
+    }
+}
+
+void HierModel::fit(const unsigned int ne, const float lr, const std::vector<unsigned int>& ign_index, const bool verbose)
+{
+    if (root != nullptr)
+    {
+        unsigned int e_cntr {0};
+        while(e_cntr<ne)
+        {
+            double e_loss {0.0};
+            double n_cntr {0.0};
+            // run over each instance 
+            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
+            {
+                if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
+                {
+                    double i_loss {0.0};
+                    feature_node* x {this->prob.x[n]};
+                    std::vector<int> y {(int) this->prob.y[n]}; // our class 
+                    HNode* visit_node = this->root;
+                    while(!visit_node->chn.empty())
+                    {
+                        int ind = -1;
+                        for (unsigned int i = 0; i<visit_node->chn.size(); ++i)
+                        { 
+                            if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
+                            {
+                                ind = static_cast<int>(i);
+                                break;
+                            }  
+                        }
+                        if (ind != -1)
+                        {
+                            double i_p {visit_node->update(x, static_cast<long>(ind), lr)};
+                            i_loss += std::log2((i_p<=EPS ? EPS : i_p));
+                            visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
+                        }
+                        else
+                        {
+                            std::cerr << "[error] label " << y[0] << " not found in hierarchy!\n";
+                            exit(1);
+                        }
+                    }
+                    e_loss += -i_loss;
+                    n_cntr += 1;
+                }
+            }
+            if (verbose)
+                std::cout << "Epoch " << (e_cntr+1) << ": loss " << (e_loss/n_cntr) << '\n';
+            ++e_cntr;
         }
     }
     else
@@ -341,12 +439,6 @@ void HierModel::predict_proba(const feature_node* x, double* prob_estimates)
     }
 }
     
-// check problem and parameter before training
-void HierModel::checkParam()
-{
-    // TODO: implement!
-}
-
 // get number of classes of fitted model
 int HierModel::getNrClass()
 {
