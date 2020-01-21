@@ -9,6 +9,8 @@ Header utils
 
 #include "liblinear/linear.h"
 
+const double EPS = 0.001;
+
 void dgemv(const double alpha, const double** W, const double* x, double* y, const unsigned long d, const unsigned long k);
 void dvscalm(const double alpha, const double* x, double** D, const unsigned long d, const unsigned long k, const unsigned long i);
 void dvscal(const double alpha, double* x, const unsigned long d);

@@ -15,6 +15,8 @@ Implementation of hierarchical model
 #include <sstream>
 #include <queue>
 #include <cmath>
+#include <iterator>
+#include <vector>
 
 HNode::HNode(const problem &prob) 
 {
@@ -44,6 +46,23 @@ HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
 HNode::~HNode()
 {
     this->free();
+}
+
+unsigned int HNode::predict(const feature_node *x)
+{
+    // forward step
+    double* o {new double[this->W.k]}; // array of exp
+    // convert feature_node arr to double arr
+    double* x_arr {ftvToArr(x, this->W.d)}; 
+    // Wtx
+    dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    // get index max
+    double* max_o {std::max_element(o, o+this->W.k)}; 
+    unsigned int max_i {static_cast<unsigned int>(static_cast<unsigned long>(max_o-o))};
+    // delete
+    delete[] x_arr;
+    delete[] o;
+    return max_i;
 }
 
 double HNode::update(const feature_node *x, const long ind, const float lr)
@@ -242,19 +261,21 @@ void HierModel::fit(const unsigned int ne, const float lr)
         unsigned int cntr {0};
         while(cntr<ne)
         {
+            double e_loss {0.0};
             // run over each instance 
-            //for (unsigned int n = 0; n<10; ++n) /* debug purposes */
+            //for (unsigned int n {0};n<10; ++n) /* debug purposes */
             for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
             {
-                double loss {0.0};
+                double i_loss {0.0};
                 feature_node* x {this->prob.x[n]};
                 std::vector<int> y {(int) this->prob.y[n]}; // our class 
+                //std::cout << "Y = " << y[0] << '\n';
                 HNode* visit_node = this->root;
                 while(!visit_node->chn.empty())
                 {
                     int ind = -1;
                     for (unsigned int i = 0; i < visit_node->chn.size(); ++i)
-                    {
+                    { 
                         if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
                         {
                             ind = static_cast<int>(i);
@@ -263,7 +284,9 @@ void HierModel::fit(const unsigned int ne, const float lr)
                     }
                     if (ind != -1)
                     {
-                        loss += std::log(visit_node->update(x, static_cast<long>(ind), lr));
+                        double i_p {visit_node->update(x, static_cast<long>(ind), lr)};
+                        //std::cout << "i_p: " << i_p << '\n';
+                        i_loss += std::log2((i_p<=EPS ? EPS : i_p));
                         visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
                     }
                     else
@@ -272,9 +295,10 @@ void HierModel::fit(const unsigned int ne, const float lr)
                         exit(1);
                     }
                 }
-                // print out loss
-                std::cout << "Iteration " << n << ": loss " << (-loss) << '\n';
+                //std::cout << "i_loss: " << -i_loss << '\n';
+                e_loss += -i_loss;
             }
+            std::cout << "Epoch " << cntr << ": loss " << (e_loss/static_cast<double>(this->prob.l)) << '\n';
             ++cntr;
         }
     }
@@ -295,8 +319,11 @@ double HierModel::predict(const feature_node *x)
     }
     else
     {
-        // TODO: implement!
-        return -1.0;
+        HNode* visit_node = this->root;
+        while(!visit_node->chn.empty())
+           visit_node = visit_node->chn[visit_node->predict(x)];
+        
+        return static_cast<double>(visit_node->y[0]);
     }
 }
 

@@ -5,6 +5,7 @@ Header hierarchical model
 */
 
 // TODO: finalize comments
+// TODO: change int type of y to unsigned long!
 
 #ifndef HIER_H
 #define HIER_H
@@ -47,6 +48,7 @@ class HNode
 
         std::vector<int> y;
         std::vector<HNode*> chn;
+        unsigned int predict(const feature_node *x); /* predict child/branch */
         double update(const feature_node *x, const long ind, const float lr); /* forward & backward pass */
         void backward(const feature_node *x, const float lr); /* backward pass */
         void addChildNode(std::vector<int> y, const problem &p);     
