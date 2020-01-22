@@ -34,31 +34,52 @@ FlatModel::~FlatModel()
 
 void FlatModel::printInfo()
 {
-    std::cout << "---------------------------------------------------\n";
-    std::cout << "[info] Flat model: \n";
-    std::cout << "---------------------------------------------------\n";
-    std::cout << "  * Number of features              = " << prob->n << '\n';
-    std::cout << "  * Number of samples               = " << prob->l << '\n';
-    if (param->solver_type == L1R_LR)
-        std::cout << "  * Optimizer                       = L1\n";
+    if (model != nullptr)
+    {
+        std::cout << "---------------------------------------------------\n";
+        std::cout << "[info] Flat model: \n";
+        std::cout << "---------------------------------------------------\n";
+        std::cout << "  * Number of features              = " << this->model->nr_feature << '\n';
+        std::cout << "  * Number of classes               = " << this->model->nr_class << '\n';
+        if (param->solver_type == L1R_LR)
+            std::cout << "  * Optimizer                       = L1\n";
+        else
+            std::cout << "  * Optimizer                       = L2(dual)\n";
+        std::cout << "  * C                               = " << this->model->param.C << '\n';
+        std::cout << "  * Epsilon                         = " << this->model->param.eps << '\n';
+        std::cout << "---------------------------------------------------\n\n";
+    }
     else
-        std::cout << "  * Optimizer                       = L2(dual)\n";
-    std::cout << "  * C                               = " << param->C << '\n';
-    std::cout << "  * Epsilon                         = " << param->eps << '\n';
-    std::cout << "---------------------------------------------------\n\n";
+    {
+        std::cerr << "[warning] Model has not been fitted yet!\n";
+    }
 }
 
 void FlatModel::performCrossValidation()
 {
-    int i;
-    int total_correct = 0;
-    double *target = new double[static_cast<unsigned long>(prob->l)];
-    cross_validation(prob,param,4,target);
-    for(i=0;i<prob->l;i++)
-	        if(target[i] == prob->y[i])
-		        ++total_correct;
-    std::cout << "4-fold cross-validation accuracy = " << 100.0*total_correct/prob->l << "% \n";
-    delete[] target;
+    if (model == nullptr && prob != nullptr && param != nullptr)
+    {
+        int i;
+        int total_correct = 0;
+        double *target = new double[static_cast<unsigned long>(prob->l)];
+        cross_validation(prob,param,4,target);
+        for(i=0;i<prob->l;i++)
+	            if(target[i] == prob->y[i])
+		            ++total_correct;
+        std::cout << "4-fold cross-validation accuracy = " << 100.0*total_correct/prob->l << "% \n";
+        delete[] target;
+    }
+    else
+    {
+        if(this->model == nullptr)
+        {
+            std::cerr << "[warning] Model has not been fitted yet!\n";
+        }
+        else
+        {
+            std::cerr << "[warning] Model is in predict mode!\n";
+        }
+    }
 }
 
 void FlatModel::fit()
@@ -74,6 +95,10 @@ void FlatModel::fit()
         class_to_label_dict = new int[static_cast<unsigned long>(getNrClass())];
         get_labels(model, class_to_label_dict);
     }
+    else
+    {
+        std::cerr << "[warning] Model is in predict mode!\n";
+    }
 }
 
 // predict class with highest probability 
@@ -81,7 +106,7 @@ double FlatModel::predict(const feature_node *x)
 {
     if (model == nullptr)
     {
-        std::cerr << "[warning] Model has not been fitted yet";
+        std::cerr << "[warning] Model has not been fitted yet!\n";
         return -1.0;
     }
     else
@@ -97,7 +122,7 @@ void FlatModel::predict_proba(const feature_node* x, double* prob_estimates)
 {
     if (model == nullptr)
     {
-        std::cerr << "[warning] Model has not been fitted yet!";
+        std::cerr << "[warning] Model has not been fitted yet!\n";
     }
     else
     {

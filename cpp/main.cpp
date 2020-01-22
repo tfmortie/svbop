@@ -61,8 +61,8 @@ int main(int argc, char** argv)
         {
             HierModel model = HierModel(&prob, &param);
             model.printInfo(); // TODO: remove (debug)
-            model.fit();
             model.performCrossValidation(4);
+            model.fit();
         }
         destroy_param(&param);
     }

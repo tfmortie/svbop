@@ -52,6 +52,7 @@ class HNode
         void backward(const feature_node* x, const double lr); /* backward pass */
         void reset();
         void addChildNode(std::vector<int> y, const problem& p);     
+        unsigned long getNrFeatures();
         void print();
 };
 
@@ -67,7 +68,6 @@ class HierModel
         ~HierModel();
 
         void printStruct();
-        void print();
         void printInfo(const bool verbose = 0);
         void performCrossValidation(unsigned int k);
         void reset();

@@ -175,6 +175,11 @@ void HNode::free()
     }
 }  
 
+unsigned long HNode::getNrFeatures()
+{
+    return this->W.d;
+}
+
 void HNode::print()
 {
     std::ostringstream oss;
@@ -228,44 +233,35 @@ HierModel::~HierModel()
 
 void HierModel::printStruct()
 {
-    std::cout << "[info] Structure:\n";
-    for (auto &v : this->prob->h_struct)
-    {
-        std::cout << "[";
-        for (auto &el: v)
-        {
-            std::cout << el << ",";
-        }
-        std::cout << "]\n";
-    }
-}
-
-void HierModel::print()
-{
     if (root != nullptr)
         this->root->print();
 }
 
 void HierModel::printInfo(const bool verbose)
 {
-    std::cout << "---------------------------------------------------\n";
-    std::cout << "[info] Hierarchical model: \n";
-    std::cout << "---------------------------------------------------\n";
-    std::cout << "  * Number of features              = " << this->prob->n << '\n';
-    std::cout << "  * Number of samples               = " << this->prob->l << '\n';
-    std::cout << "  * Number of classes               = " << this->prob->h_struct[0].size() << '\n';
-    std::cout << "  * Number of nodes                 = " << this->prob->h_struct.size() << '\n';
-    if (verbose)
+    if (root != nullptr)
     {
-        std::cout << "  * Structure =\n";
-        this->print();
+        std::cout << "---------------------------------------------------\n";
+        std::cout << "[info] Hierarchical model: \n";
+        std::cout << "---------------------------------------------------\n";
+        std::cout << "  * Number of features              = " << this->root->getNrFeatures() << '\n';
+        std::cout << "  * Number of classes               = " << this->prob->h_struct[0].size() << '\n';
+        if (verbose)
+        {
+            std::cout << "  * Structure =\n";
+            this->printStruct();
+        }
+        std::cout << "---------------------------------------------------\n\n";
     }
-    std::cout << "---------------------------------------------------\n\n";
+    else
+    {
+        std::cerr << "[warning] Model has not been constructed yet!\n";
+    }
 }
 
 void HierModel::performCrossValidation(unsigned int k)
 {
-    if (root != nullptr)
+    if (this->root != nullptr && this->prob != nullptr)
     {
         std::cout << "---- " << k << "-Fold CV ----\n";
         // first create index vector
@@ -324,8 +320,10 @@ void HierModel::performCrossValidation(unsigned int k)
     }
     else
     {
-        std::cerr << "[warning] Model has not been fitted yet\n";
-        exit(1);
+        if(this->root == nullptr)
+            std::cerr << "[warning] Model has not been constructed yet!\n";
+        else
+            std::cerr << "[warning] Model is in predict mode!\n";
     }
 }
 
@@ -351,14 +349,13 @@ void HierModel::reset()
     }
     else
     {
-        std::cerr << "[warning] Model has not been fitted yet\n";
-        exit(1);
+        std::cerr << "[warning] Model has not been constructed yet!\n";
     }
 }
 
 void HierModel::fit(const std::vector<unsigned int>& ign_index, const bool verbose)
 {
-    if (root != nullptr)
+    if (this->root != nullptr && this->prob != nullptr)
     {
         int e_cntr {0};
         while(e_cntr<this->param->ne)
@@ -410,8 +407,10 @@ void HierModel::fit(const std::vector<unsigned int>& ign_index, const bool verbo
     }
     else
     {
-        std::cerr << "[warning] Model has not been fitted yet\n";
-        exit(1);
+        if(this->root == nullptr)
+            std::cerr << "[warning] Model has not been constructed yet!\n";
+        else
+            std::cerr << "[warning] Model is in predict mode!\n";
     }
 }
 
@@ -419,7 +418,7 @@ double HierModel::predict(const feature_node *x)
 {
     if (root == nullptr)
     {
-        std::cerr << "[warning] Model has not been fitted yet";
+        std::cerr << "[warning] Model has not been constructed yet!\n";
         return -1.0;
     }
     else
@@ -436,7 +435,7 @@ int HierModel::getNrClass()
 {
     if (root == nullptr)
     {
-        std::cerr << "[warning] Model has not been fitted yet!\n";
+        std::cerr << "[warning] Model has not been constructed yet!\n";
         return 0;
     }
     else
