@@ -9,10 +9,10 @@ Header hierarchical model
 #ifndef HIER_H
 #define HIER_H
 
-#include "model/model.h"
 #include <iostream>
 #include <vector>
 #include <string>
+#include "liblinear/linear.h"
 
 /* Weight matrix */
 struct W_hnode
@@ -41,40 +41,41 @@ class HNode
         void free();   
 
     public: 
-        HNode(const problem &prob); /* will be called on root */
-        HNode(std::vector<int> y, const problem &prob);
+        HNode(const problem& prob); /* will be called on root */
+        HNode(std::vector<int> y, const problem& prob);
         ~HNode();
 
         std::vector<int> y;
         std::vector<HNode*> chn;
-        unsigned int predict(const feature_node *x); /* predict child/branch */
-        double update(const feature_node *x, const long ind, const float lr); /* forward & backward pass */
-        void backward(const feature_node *x, const float lr); /* backward pass */
+        unsigned int predict(const feature_node* x); /* predict child/branch */
+        double update(const feature_node* x, const long ind, const double lr); /* forward & backward pass */
+        void backward(const feature_node* x, const double lr); /* backward pass */
         void reset();
-        void addChildNode(std::vector<int> y, const problem &p);     
+        void addChildNode(std::vector<int> y, const problem& p);     
         void print();
 };
 
 class HierModel
 {
     private:
+        const problem* prob;
+        const parameter* param;
         HNode* root;
-        const problem &prob;
         
     public:
-        HierModel(const problem &prob);
+        HierModel(const problem* prob, const parameter* param);
         ~HierModel();
 
         void printStruct();
         void print();
-        void printInfo();
-        void performCrossValidation(unsigned int k, const unsigned int ne, const float lr);
+        void printInfo(const bool verbose = 0);
+        void performCrossValidation(unsigned int k);
         void reset();
-        void fit(const unsigned int ne, const float lr, const std::vector<unsigned int>& ign_index = {}, const bool verbose = 1);
+        void fit(const std::vector<unsigned int>& ign_index = {}, const bool verbose = 1);
         double predict(const feature_node* x);
-        void predict_proba(const feature_node* x, double* prob_estimates);
         int getNrClass();
         void save(const char* model_file_name);
+        void load(const char* model_file_name);
 };
 
 #endif

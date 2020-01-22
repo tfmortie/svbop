@@ -33,8 +33,12 @@ struct parameter
 	int solver_type;
 
 	/* these are for training only */
+	/* LR */
 	double eps;	        /* stopping criteria */
 	double C;
+	/* HSM */
+	int ne;
+	double lr;
 	int nr_weight;
 	int *weight_label;
 	double* weight;

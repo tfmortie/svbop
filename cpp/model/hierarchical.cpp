@@ -67,7 +67,7 @@ unsigned int HNode::predict(const feature_node *x)
     return max_i;
 }
 
-double HNode::update(const feature_node *x, const long ind, const float lr)
+double HNode::update(const feature_node *x, const long ind, const double lr)
 {
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
@@ -97,7 +97,7 @@ double HNode::update(const feature_node *x, const long ind, const float lr)
     return p;
 }
 
-void HNode::backward(const feature_node *x, const float lr)
+void HNode::backward(const feature_node *x, const double lr)
 {
     for (unsigned long i=0; i<this->W.k; ++i)
         dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
@@ -199,10 +199,10 @@ void HNode::print()
         std::cout << "NODE(" << oss.str() << ")\n";
 }
 
-HierModel::HierModel(const problem &prob) : prob{prob}
+HierModel::HierModel(const problem* prob, const parameter* param) : prob{prob}, param{param}
 {
     // construct tree 
-    root = new HNode(prob);
+    root = new HNode(*prob);
 }
 
 HierModel::~HierModel()
@@ -229,7 +229,7 @@ HierModel::~HierModel()
 void HierModel::printStruct()
 {
     std::cout << "[info] Structure:\n";
-    for (auto &v : this->prob.h_struct)
+    for (auto &v : this->prob->h_struct)
     {
         std::cout << "[";
         for (auto &el: v)
@@ -246,26 +246,31 @@ void HierModel::print()
         this->root->print();
 }
 
-void HierModel::printInfo()
+void HierModel::printInfo(const bool verbose)
 {
     std::cout << "---------------------------------------------------\n";
     std::cout << "[info] Hierarchical model: \n";
     std::cout << "---------------------------------------------------\n";
-    std::cout << "  * Number of features              = " << this->prob.n << '\n';
-    std::cout << "  * Number of samples               = " << this->prob.l << '\n';
-    std::cout << "  * Model =\n";
-    this->print();
+    std::cout << "  * Number of features              = " << this->prob->n << '\n';
+    std::cout << "  * Number of samples               = " << this->prob->l << '\n';
+    std::cout << "  * Number of classes               = " << this->prob->h_struct[0].size() << '\n';
+    std::cout << "  * Number of nodes                 = " << this->prob->h_struct.size() << '\n';
+    if (verbose)
+    {
+        std::cout << "  * Structure =\n";
+        this->print();
+    }
     std::cout << "---------------------------------------------------\n\n";
 }
 
-void HierModel::performCrossValidation(unsigned int k, const unsigned int ne, const float lr)
+void HierModel::performCrossValidation(unsigned int k)
 {
     if (root != nullptr)
     {
         std::cout << "---- " << k << "-Fold CV ----\n";
         // first create index vector
         std::vector<unsigned int> ind_arr;
-        for(unsigned int i=0; i<static_cast<unsigned int>(this->prob.l); ++i)
+        for(unsigned int i=0; i<static_cast<unsigned int>(this->prob->l); ++i)
         {
             ind_arr.push_back(i);
         }
@@ -273,7 +278,7 @@ void HierModel::performCrossValidation(unsigned int k, const unsigned int ne, co
         auto rng = std::default_random_engine {};
         std::shuffle(std::begin(ind_arr), std::end(ind_arr), rng);
         // calculate size of each test fold
-        unsigned int ns_fold {static_cast<unsigned int>(static_cast<unsigned int>(this->prob.l)/k)};
+        unsigned int ns_fold {static_cast<unsigned int>(static_cast<unsigned int>(this->prob->l)/k)};
         // start kfcv
         unsigned int iter {0};
         while(iter < k)
@@ -281,21 +286,21 @@ void HierModel::performCrossValidation(unsigned int k, const unsigned int ne, co
             std::cout << "FOLD " << iter+1 << '\n';
             // first clear weights 
             this->reset();
-            // ectract test fold indices
+            // extract test fold indices
             std::vector<unsigned int>::const_iterator i_start = ind_arr.begin() + iter*ns_fold;
             std::vector<unsigned int>::const_iterator i_stop = ind_arr.begin() + (iter+1)*ns_fold;
             std::vector<unsigned int> testfold_ind(i_start, i_stop);
             // now start fitting 
-            this->fit(ne, lr, testfold_ind, 0);
+            this->fit(testfold_ind, 0);
             // and validate on training and test fold
             double acc {0.0};
             double n_cntr {0.0};
-            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
+            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob->l); ++n)
             {
                 if (std::find(testfold_ind.begin(), testfold_ind.end(), n) == testfold_ind.end())
                 {
-                    double pred {this->predict(this->prob.x[n])};
-                    double targ {this->prob.y[n]};
+                    double pred {this->predict(this->prob->x[n])};
+                    double targ {this->prob->y[n]};
                     acc += (pred==targ);
                     n_cntr += 1.0;
                 }
@@ -305,8 +310,8 @@ void HierModel::performCrossValidation(unsigned int k, const unsigned int ne, co
             n_cntr = 0.0;
             for (unsigned int n = 0; n<static_cast<unsigned int>(testfold_ind.size()); ++n)
             {
-                double pred {this->predict(this->prob.x[testfold_ind[n]])};
-                double targ {this->prob.y[testfold_ind[n]]};
+                double pred {this->predict(this->prob->x[testfold_ind[n]])};
+                double targ {this->prob->y[testfold_ind[n]]};
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
@@ -351,23 +356,23 @@ void HierModel::reset()
     }
 }
 
-void HierModel::fit(const unsigned int ne, const float lr, const std::vector<unsigned int>& ign_index, const bool verbose)
+void HierModel::fit(const std::vector<unsigned int>& ign_index, const bool verbose)
 {
     if (root != nullptr)
     {
-        unsigned int e_cntr {0};
-        while(e_cntr<ne)
+        int e_cntr {0};
+        while(e_cntr<this->param->ne)
         {
             double e_loss {0.0};
             double n_cntr {0.0};
             // run over each instance 
-            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob.l); ++n)
+            for (unsigned int n = 0; n<static_cast<unsigned int>(this->prob->l); ++n)
             {
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     double i_loss {0.0};
-                    feature_node* x {this->prob.x[n]};
-                    std::vector<int> y {(int) this->prob.y[n]}; // our class 
+                    feature_node* x {this->prob->x[n]};
+                    std::vector<int> y {(int) this->prob->y[n]}; // our class 
                     HNode* visit_node = this->root;
                     while(!visit_node->chn.empty())
                     {
@@ -382,7 +387,7 @@ void HierModel::fit(const unsigned int ne, const float lr, const std::vector<uns
                         }
                         if (ind != -1)
                         {
-                            double i_p {visit_node->update(x, static_cast<long>(ind), lr)};
+                            double i_p {visit_node->update(x, static_cast<long>(ind), this->param->lr)};
                             i_loss += std::log2((i_p<=EPS ? EPS : i_p));
                             visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
                         }
@@ -400,6 +405,8 @@ void HierModel::fit(const unsigned int ne, const float lr, const std::vector<uns
                 std::cout << "Epoch " << (e_cntr+1) << ": loss " << (e_loss/n_cntr) << '\n';
             ++e_cntr;
         }
+        if (verbose)
+            std::cout << '\n';
     }
     else
     {
@@ -408,7 +415,6 @@ void HierModel::fit(const unsigned int ne, const float lr, const std::vector<uns
     }
 }
 
-// predict class with highest probability 
 double HierModel::predict(const feature_node *x)
 {
     if (root == nullptr)
@@ -425,21 +431,7 @@ double HierModel::predict(const feature_node *x)
         return static_cast<double>(visit_node->y[0]);
     }
 }
-
-void HierModel::predict_proba(const feature_node* x, double* prob_estimates)
-{
-    if (root == nullptr)
-    {
-        std::cerr << "[warning] Model has not been fitted yet!";
-    }
-    else
-    {
-        // fill in probability estimates vector 
-        // TODO: implement!
-    }
-}
     
-// get number of classes of fitted model
 int HierModel::getNrClass()
 {
     if (root == nullptr)
@@ -451,8 +443,12 @@ int HierModel::getNrClass()
         return this->root->y.size();
 }
 
-// save model
 void HierModel::save(const char* model_file_name)
+{
+    // TODO: implement!
+}
+
+void HierModel::load(const char* model_file_name)
 {
     // TODO: implement!
 }

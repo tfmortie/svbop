@@ -25,12 +25,14 @@ void showHelp()
                 1 := L2-regularized logistic regression (dual)
                 2 := hierarchical softmax
         -m, --model             Model path for predicting/saving
-        -h, --hierarchy         Hierarchy path for h-softmax
+        -h, --hierarchy         Hierarchy path (HSM)
         -b, --bias              Bias for linear model 
               >=0 := bias included 
               <0  := bias not included 
-        -C, --C                 The cost of constraints violation
-        -e, --eps               Stopping criteria
+        -C, --C                 The cost of constraints violation (LR)
+        -e, --eps               Stopping criteria (LR)
+        -ne, --nepochs          Number of epochs (HSM)
+        -lr, --learnrate        Learning rate (HSM)
         -d, --dim               Number of features of dataset (bias not included)
     )help"; 
     exit(1);
@@ -125,6 +127,18 @@ void parseArgs(int argc, char** args, ParseResult& presult)
         else if (static_cast<std::string>(args[i]).compare("-e") == 0 || static_cast<std::string>(args[i]).compare("--eps") == 0)
         {
             presult.eps = std::stod(args[i+1]);
+            ++i;
+        }
+        // check for -ne, --nepochs
+        else if (static_cast<std::string>(args[i]).compare("-ne") == 0 || static_cast<std::string>(args[i]).compare("--nepochs") == 0)
+        {
+            presult.ne = std::stoi(args[i+1]);
+            ++i;
+        }
+        // check for -lr, --learnrate
+        else if (static_cast<std::string>(args[i]).compare("-lr") == 0 || static_cast<std::string>(args[i]).compare("--learnrate") == 0)
+        {
+            presult.lr = std::stod(args[i+1]);
             ++i;
         }
         else

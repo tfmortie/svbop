@@ -10,9 +10,7 @@ Implementation of flat model
 #include <iostream>
 #include <utility> 
 
-FlatModel::FlatModel(const problem* prob, const parameter* param) : Model(prob, param) {};
-
-FlatModel::FlatModel(const char* model_file_name) : Model(model_file_name)
+FlatModel::FlatModel(const char* model_file_name) : prob{nullptr}, param{nullptr}, model{load_model(model_file_name)}
 {
     std::cout << "Loading model from " << model_file_name << "...\n";
     model = load_model(model_file_name); 
@@ -42,9 +40,9 @@ void FlatModel::printInfo()
     std::cout << "  * Number of features              = " << prob->n << '\n';
     std::cout << "  * Number of samples               = " << prob->l << '\n';
     if (param->solver_type == L1R_LR)
-        std::cout << "  * Model                           = L1-LR\n";
+        std::cout << "  * Optimizer                       = L1\n";
     else
-        std::cout << "  * Model                           = L2-LR (dual)\n";
+        std::cout << "  * Optimizer                       = L2(dual)\n";
     std::cout << "  * C                               = " << param->C << '\n';
     std::cout << "  * Epsilon                         = " << param->eps << '\n';
     std::cout << "---------------------------------------------------\n\n";

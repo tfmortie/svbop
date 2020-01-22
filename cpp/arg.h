@@ -23,8 +23,12 @@ struct ParseResult {
     ModelType model_type;
     double bias; 
     int num_features;
+    /* liblinear */
     double C; // cost of constraints violation
     double eps; // stopping criteria
+    /* hsm */
+    int ne;
+    double lr;
 };
 
 void showHelp();
