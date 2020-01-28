@@ -54,6 +54,7 @@ class HNode
         void addChildNode(std::vector<int> y, const problem& p);     
         unsigned long getNrFeatures();
         std::string getWeightVector();
+        void setWeightVector(std::string);
         void print();
 };
 
@@ -66,6 +67,7 @@ class HierModel
         
     public:
         HierModel(const problem* prob, const parameter* param);
+        HierModel(const char* model_file_name);
         ~HierModel();
 
         void printStruct();

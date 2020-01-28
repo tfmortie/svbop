@@ -144,7 +144,7 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
             if (tot_len_y_chn == this->y.size())
             {
                 // allocate weight and delta vectors 
-                for (unsigned int i=0; i < static_cast<unsigned int>(prob.n); ++i)
+                for (unsigned int i=0; i<static_cast<unsigned int>(prob.n); ++i)
                 {
                     this->W.value[i] = new double[this->chn.size()];
                     this->D.value[i] = new double[this->chn.size()]{0};
@@ -203,6 +203,11 @@ std::string HNode::getWeightVector()
     return ret_arr;
 }
 
+void setWeightVector(std::string)
+{
+    // TODO: implement function which sets weight vector (row-major order) given string representation
+}
+
 void HNode::print()
 {
     std::ostringstream oss;
@@ -231,6 +236,17 @@ HierModel::HierModel(const problem* prob, const parameter* param) : prob{prob}, 
 {
     // construct tree 
     root = new HNode(*prob);
+}
+
+HierModel::HierModel(const char* model_file_name) : prob{nullptr}, param{nullptr}
+{
+    std::cout << "Loading model from " << model_file_name << "...\n";
+    this->load(model_file_name);
+    if (this->root == nullptr)
+    {
+        std::cerr << "[error] File "  << model_file_name << " does not exist!\n";
+        exit(1);
+    }
 }
 
 HierModel::~HierModel()
@@ -268,7 +284,7 @@ void HierModel::printInfo(const bool verbose)
         std::cout << "[info] Hierarchical model: \n";
         std::cout << "---------------------------------------------------\n";
         std::cout << "  * Number of features              = " << this->root->getNrFeatures() << '\n';
-        std::cout << "  * Number of classes               = " << this->prob->h_struct[0].size() << '\n';
+        std::cout << "  * Number of classes               = " << this->root->y.size() << '\n';
         if (verbose)
         {
             std::cout << "  * Structure =\n";
@@ -470,11 +486,7 @@ int HierModel::getNrClass()
 */
 void HierModel::save(const char* model_file_name)
 {
-    if (root == nullptr)
-    {
-        std::cerr << "[warning] Model has not been constructed yet!\n";
-    }
-    else
+    if (this->root != nullptr && this->prob != nullptr)
     {
         // create output file stream
         std::ofstream model_file;
@@ -512,9 +524,19 @@ void HierModel::save(const char* model_file_name)
         // close file
         model_file.close();
     }
+    else
+    {
+        if(this->root == nullptr)
+            std::cerr << "[warning] Model has not been constructed yet!\n";
+        else
+            std::cerr << "[warning] Model is in predict mode!\n";
+    }
 }
 
 void HierModel::load(const char* model_file_name)
 {
-    // TODO implement
+    problem* prob; 
+    //1. create prob instance, based on information in file: h_struct, nr_feature, bias
+    //2. process weights and propagate them through tree
+    delete prob;
 }
