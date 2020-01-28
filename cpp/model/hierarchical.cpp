@@ -9,8 +9,11 @@ Implementation of hierarchical model
 // TODO: change int type of y to unsigned long!
 
 #include "model/hierarchical.h"
+#include "data.h"
 #include "utils.h"
+#include <string>
 #include <iostream>
+#include <iomanip>
 #include <utility> 
 #include <algorithm>
 #include <sstream>
@@ -19,6 +22,7 @@ Implementation of hierarchical model
 #include <iterator>
 #include <vector>
 #include <random>
+#include <fstream>
 
 HNode::HNode(const problem &prob) 
 {
@@ -178,6 +182,25 @@ void HNode::free()
 unsigned long HNode::getNrFeatures()
 {
     return this->W.d;
+}
+
+std::string HNode::getWeightVector()
+{
+    std::string ret_arr;
+    // process all elements in row-major order
+    for (unsigned long i=0; i<this->W.d; ++i)
+    {
+        for (unsigned long j=0; j<this->W.k; ++j)
+        {
+
+            std::stringstream str_stream;
+            str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
+            ret_arr += str_stream.str();
+            if ((i!=this->W.d-1) || (j!=this->W.k-1))
+                ret_arr += ' ';
+        }
+    }
+    return ret_arr;
 }
 
 void HNode::print()
@@ -442,12 +465,56 @@ int HierModel::getNrClass()
         return this->root->y.size();
 }
 
+/*
+    TODO: catch possible exceptions in this function (might become non-void eventually)
+*/
 void HierModel::save(const char* model_file_name)
 {
-    // TODO: implement!
+    if (root == nullptr)
+    {
+        std::cerr << "[warning] Model has not been constructed yet!\n";
+    }
+    else
+    {
+        // create output file stream
+        std::ofstream model_file;
+        // TODO: add check whether below was successfull
+        model_file.open(model_file_name, std::ofstream::trunc);
+        // STRUCT
+        model_file << "h_struct [";
+        // process all except last element
+        for (unsigned int i=0; i<this->prob->h_struct.size()-1; ++i)
+            model_file << vecToArr(this->prob->h_struct[i]) << ',';
+        // and now last element
+        model_file << vecToArr(this->prob->h_struct[this->prob->h_struct.size()-1]) << "]\n";
+        // #FEATURES
+        model_file << "nr_feature " << this->prob->n << '\n';
+        // BIAS
+        model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
+        // WEIGHTS
+        model_file << "w \n";
+        std::queue<HNode*> visit_list; 
+        visit_list.push(this->root);
+        while(!visit_list.empty())
+        {
+            HNode* visit_node = visit_list.front();
+            // print out weights
+            model_file << visit_node->getWeightVector() << '\n';
+            // remove from Q
+            visit_list.pop();
+            // only internal nodes are going to be processed eventually (and end up in Q)
+            for(auto* c : visit_node->chn)
+            {
+                if(!c->chn.empty())
+                    visit_list.push(c);
+            }            
+        }
+        // close file
+        model_file.close();
+    }
 }
 
 void HierModel::load(const char* model_file_name)
 {
-    // TODO: implement!
+    // TODO implement
 }

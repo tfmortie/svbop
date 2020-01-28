@@ -153,4 +153,20 @@ std::vector<int> arrToVec(const std::string &s)
     return ret_vec;
 }
 
+std::string vecToArr(const std::vector<int> &v)
+{
+    std::string ret_arr;
+    ret_arr += '[';
+    // process all except last element
+    for (unsigned int i=0; i<v.size()-1; ++i)
+    {
+        ret_arr += std::to_string(v[i]);
+        ret_arr += ",";
+    }
+    // and now last element
+    ret_arr += std::to_string(v[v.size()-1]);
+    ret_arr += "]";
+    return ret_arr;
+}
+
 

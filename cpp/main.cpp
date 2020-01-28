@@ -16,7 +16,7 @@ Main file
 
 int main(int argc, char** argv)
 {
-    ParseResult parser_result {true, "", "./model.out", "", ModelType::L1_LR_PRIMAL, -1, 0, 0.0, 0.0, 0, 0.0};
+    ParseResult parser_result {true, "", "./model_hs.out", "", ModelType::L1_LR_PRIMAL, -1, 0, 0.0, 0.0, 0, 0.0};
     parseArgs(argc, argv, parser_result);
     if (parser_result.train)
     {
@@ -63,6 +63,7 @@ int main(int argc, char** argv)
             model.printInfo(); // TODO: remove (debug)
             model.performCrossValidation(4);
             model.fit();
+            model.save(parser_result.model_path.c_str());
         }
         destroy_param(&param);
     }
