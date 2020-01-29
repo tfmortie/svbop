@@ -193,7 +193,6 @@ std::string HNode::getWeightVector()
     {
         for (unsigned long j=0; j<this->W.k; ++j)
         {
-
             std::stringstream str_stream;
             str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
             ret_arr += str_stream.str();
@@ -404,6 +403,7 @@ void HierModel::reset()
 
 void HierModel::fit(const std::vector<unsigned int>& ign_index, const bool verbose)
 {
+    std::cout << "Fit model...\n";
     if (this->root != nullptr && this->prob != nullptr)
     {
         int e_cntr {0};
@@ -497,6 +497,7 @@ int HierModel::getNrClass()
 */
 void HierModel::save(const char* model_file_name)
 {
+    std::cout << "Saving model to " << model_file_name << "...\n";
     if (this->root != nullptr && this->prob != nullptr)
     {
         // create output file stream
@@ -510,18 +511,18 @@ void HierModel::save(const char* model_file_name)
             model_file << vecToArr(this->prob->h_struct[i]) << ',';
         // and now last element
         model_file << vecToArr(this->prob->h_struct[this->prob->h_struct.size()-1]) << "]\n";
-        // #FEATURES
+        // #features
         model_file << "nr_feature " << this->prob->n << '\n';
-        // BIAS
+        // bias
         model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
-        // WEIGHTS
+        // weights
         model_file << "w \n";
         std::queue<HNode*> visit_list; 
         visit_list.push(this->root);
         while(!visit_list.empty())
         {
             HNode* visit_node = visit_list.front();
-            // print out weights
+            // store weights
             model_file << visit_node->getWeightVector() << '\n';
             // remove from Q
             visit_list.pop();
@@ -581,21 +582,17 @@ void HierModel::load(const char* model_file_name)
             }
             else
             {
-                // weight line => store in current node 
-                while(!visit_list.empty())
+                HNode* visit_node = visit_list.front();
+                // set weights
+                visit_node->setWeightVector(line);
+                // remove from Q
+                visit_list.pop();
+                // only internal nodes are going to be processed eventually (and end up in Q)
+                for(auto* c : visit_node->chn)
                 {
-                    HNode* visit_node = visit_list.front();
-                    // set weights
-                    visit_node->setWeightVector(line);
-                    // remove from Q
-                    visit_list.pop();
-                    // only internal nodes are going to be processed eventually (and end up in Q)
-                    for(auto* c : visit_node->chn)
-                    {
-                        if(!c->chn.empty())
-                            visit_list.push(c);
-                    }            
-                }
+                    if(!c->chn.empty())
+                        visit_list.push(c);
+                }            
             }
         }
     }

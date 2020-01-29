@@ -84,11 +84,11 @@ void FlatModel::performCrossValidation()
 
 void FlatModel::fit()
 {
+    std::cout << "Fit model...\n";
     if (model == nullptr && prob != nullptr && param != nullptr)
     {
         checkParam(); // check param object 
         // train model on complete dataset
-        std::cout << "Fit model...\n";
         model = {train(prob, param)}; 
         std::cout << "Number of classes in fitted model: " << getNrClass() << '\n';
         // init. class->label dict

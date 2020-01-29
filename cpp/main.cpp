@@ -60,8 +60,8 @@ int main(int argc, char** argv)
         else
         {
             HierModel model = HierModel(&prob, &param);
-            model.printInfo(); // TODO: remove (debug)
-            model.performCrossValidation(4);
+            model.printInfo(0); // TODO: remove (debug)
+            model.performCrossValidation(2);
             model.fit();
             model.save(parser_result.model_path.c_str());
         }
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
         else
         {
             HierModel model = HierModel(parser_result.model_path.c_str());
-            model.printInfo(1);
+            model.printInfo(0);
             double acc {0.0};
             double n_cntr {0.0};
             for(unsigned int n=0; n<static_cast<unsigned int>(prob.l); ++n)
@@ -104,4 +104,3 @@ int main(int argc, char** argv)
     }
     return 0;
 }
-
