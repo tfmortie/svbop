@@ -6,3 +6,4 @@ svp.code-workspace
 data/
 cpp/data/
 cpp/main
+src/main/cpp/main
