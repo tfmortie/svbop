@@ -110,30 +110,34 @@ std::vector<std::vector<int>> processHierarchy(const std:: string &file)
     try
     {
         while (std::getline(in, line))
-        {
-            // remove leading and trailing garbage
-            line = line.substr(2, line.length()-4);
-            // as long as we have more than one index array continue
-            while (line.find(ARRDELIM) != std::string::npos)
-            {
-                auto delim_loc {line.find(ARRDELIM)};
-                // get string representation for array
-                std::string temp_arr_str {line.substr(0, delim_loc)};
-                // convert to vector 
-                h_struct.push_back(arrToVec(temp_arr_str));
-                // get remaining string
-                line = line.substr(delim_loc+3, line.length()-delim_loc-ARRDELIM.length());
-            }
-            // make sure to process the last bit of our line and we are done
-            h_struct.push_back(arrToVec(line));        
-        }
-
+            h_struct = strToHierarchy(line);
     }
     catch(std::ifstream::failure e)
     {
         std::cerr << "[error] Exception " << e.what() << " catched!\n";
         exit(1);
     }
+    return h_struct;
+}
+
+std::vector<std::vector<int>> strToHierarchy(std::string str)
+{
+    std::vector<std::vector<int>> h_struct;
+    // remove leading and trailing garbage
+    str = str.substr(2, str.length()-4);
+    // as long as we have more than one index array continue
+    while (str.find(ARRDELIM) != std::string::npos)
+    {
+        auto delim_loc {str.find(ARRDELIM)};
+        // get string representation for array
+        std::string temp_arr_str {str.substr(0, delim_loc)};
+        // convert to vector 
+        h_struct.push_back(arrToVec(temp_arr_str));
+        // get remaining string
+        str = str.substr(delim_loc+3, str.length()-delim_loc-ARRDELIM.length());
+    }
+    // make sure to process the last bit of our string and we are done
+    h_struct.push_back(arrToVec(str));
     return h_struct;
 }
 

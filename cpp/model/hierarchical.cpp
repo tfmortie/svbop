@@ -7,6 +7,7 @@ Implementation of hierarchical model
 // TODO: finalize comments
 // TODO: optimize (allow sparse features (feature_node))!
 // TODO: change int type of y to unsigned long!
+// TODO: change W double -> long double!
 
 #include "model/hierarchical.h"
 #include "data.h"
@@ -203,9 +204,18 @@ std::string HNode::getWeightVector()
     return ret_arr;
 }
 
-void setWeightVector(std::string)
+void HNode::setWeightVector(std::string w_str)
 {
-    // TODO: implement function which sets weight vector (row-major order) given string representation
+    // convert string to input stream
+    std::istringstream istr_stream {w_str};
+    // weights are separated by ' ', hence, split accordingly
+    std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
+    // run over weights in row-major order and save to W
+    for (unsigned long i=0; i<this->W.d; ++i)
+    {
+        for (unsigned long j=0; j<this->W.k; ++j)
+            this->W.value[i][j] = std::stod(tokens[(i*this->W.k)+j]);
+    }
 }
 
 void HNode::print()
@@ -483,6 +493,7 @@ int HierModel::getNrClass()
 
 /*
     TODO: catch possible exceptions in this function (might become non-void eventually)
+    Important: all attributes, to be saved, are required to be stored before w!
 */
 void HierModel::save(const char* model_file_name)
 {
@@ -535,8 +546,63 @@ void HierModel::save(const char* model_file_name)
 
 void HierModel::load(const char* model_file_name)
 {
-    problem* prob; 
+    problem* prob = new problem{}; 
     //1. create prob instance, based on information in file: h_struct, nr_feature, bias
-    //2. process weights and propagate them through tree
+    std::ifstream in {model_file_name};
+    std::string line;
+    bool w_mode {0};
+    // Q for storing nodes (setting weights)
+    std::queue<HNode*> visit_list; 
+    try
+    {
+        while (std::getline(in, line))
+        {
+            // get tokens for line (ie class and index:ftval)
+            std::istringstream istr_stream {line};
+            if (!w_mode)
+            {
+                // not yet in w mode, hence, get tokens based on ' ' 
+                std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
+                if (tokens[0] == "h_struct")
+                    prob->h_struct = strToHierarchy(tokens[1]);
+                else if(tokens[0] == "nr_feature")
+                    prob->n = std::stoi(tokens[1]);
+                else if(tokens[0] == "bias")
+                    prob->bias = std::stod(tokens[1]);
+                else
+                {
+                    // all required info, for tree construction, is stored in prob!
+                    this->root = new HNode(*prob);
+                    // and store root in Q
+                    visit_list.push(this->root);
+                    // set w mode
+                    w_mode = 1;
+                }
+            }
+            else
+            {
+                // weight line => store in current node 
+                while(!visit_list.empty())
+                {
+                    HNode* visit_node = visit_list.front();
+                    // set weights
+                    visit_node->setWeightVector(line);
+                    // remove from Q
+                    visit_list.pop();
+                    // only internal nodes are going to be processed eventually (and end up in Q)
+                    for(auto* c : visit_node->chn)
+                    {
+                        if(!c->chn.empty())
+                            visit_list.push(c);
+                    }            
+                }
+            }
+        }
+    }
+    catch(std::ifstream::failure e)
+    {
+        std::cerr << "[error] Exception " << e.what() << " catched!\n";
+        exit(1);
+    }
     delete prob;
 }

@@ -16,7 +16,7 @@ Main file
 
 int main(int argc, char** argv)
 {
-    ParseResult parser_result {true, "", "./model_hs.out", "", ModelType::L1_LR_PRIMAL, -1, 0, 0.0, 0.0, 0, 0.0};
+    ParseResult parser_result {true, "", "./model.out", "", ModelType::L1_LR_PRIMAL, -1, 0, 0.0, 0.0, 0, 0.0};
     parseArgs(argc, argv, parser_result);
     if (parser_result.train)
     {
@@ -88,8 +88,18 @@ int main(int argc, char** argv)
         }
         else
         {
-            std::cerr << "[error] Not implemented yet!";
-            exit(1);
+            HierModel model = HierModel(parser_result.model_path.c_str());
+            model.printInfo(1);
+            double acc {0.0};
+            double n_cntr {0.0};
+            for(unsigned int n=0; n<static_cast<unsigned int>(prob.l); ++n)
+            {
+                double pred {model.predict(prob.x[n])};
+                double targ {prob.y[n]};
+                acc += (pred==targ);
+                n_cntr += 1.0;
+            }
+            std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "% \n";
         }
     }
     return 0;

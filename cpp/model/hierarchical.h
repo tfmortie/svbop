@@ -54,7 +54,7 @@ class HNode
         void addChildNode(std::vector<int> y, const problem& p);     
         unsigned long getNrFeatures();
         std::string getWeightVector();
-        void setWeightVector(std::string);
+        void setWeightVector(std::string w_str);
         void print();
 };
 
