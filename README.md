@@ -12,12 +12,10 @@ Implementation is provided in C++ and Python.
 
 ### Python
 
-* A pre-trained HNet and FNet model on the VOC2006 image dataset can be found under **/src/main/py/trained_models/**.
-
 * HNet is implemented in **src/main/py/models/hclassifier.py**, which contains the code for the hierarchical probabilistic neural network model, as well as the RBOP
 inference algorithm. 
 
-* FNet is implemented in *src/main/py/models/fclassifier.py*, which contains the 
+* FNet is implemented in **src/main/py/models/fclassifier.py**, which contains the 
 code for the flat probabilistic neural network model, as well as the UBOP 
 inference algorithm.
 
