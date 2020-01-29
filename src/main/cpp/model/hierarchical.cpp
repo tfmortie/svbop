@@ -35,7 +35,9 @@ HNode::HNode(const problem &prob)
     this->y = prob.h_struct[0];
     // now construct tree
     for (unsigned int i = 1; i < prob.h_struct.size(); ++i)
+    {
         this->addChildNode(prob.h_struct[i], prob);    
+    }
 }   
 
 HNode::HNode(std::vector<int> y, const problem &prob) : y{y}
@@ -150,12 +152,12 @@ void HNode::addChildNode(std::vector<int> y, const problem &prob)
                     this->W.value[i] = new double[this->chn.size()];
                     this->D.value[i] = new double[this->chn.size()]{0};
                 }
+                // init W
+                initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
             }
             // set k size attribute
             this->W.k = this->chn.size();
             this->D.k = this->chn.size();
-            // init W
-            initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
         }
     }
     else
