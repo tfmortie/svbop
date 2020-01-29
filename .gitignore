@@ -4,6 +4,5 @@ settings.json
 *.out
 svp.code-workspace
 data/
-cpp/data/
-cpp/main
+src/main/cpp/data/
 src/main/cpp/main
