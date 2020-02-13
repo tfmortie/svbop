@@ -6,6 +6,7 @@
     TODO: comments
     TODO: optimize (allow sparse features (feature_node))!
     TODO: implement predict_proba
+    TODO: check whether backward step can be optimized (ie, no updates needed for all W's, for a given node)
 */
 
 #include "model/hierarchical.h"
