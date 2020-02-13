@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Header hierarchical softmax model
+    Header hierarchical softmax model
 */
 
 #ifndef HIER_H

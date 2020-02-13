@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Header flat model
+    Header flat model
 */
 
 #ifndef FLAT_H
@@ -16,7 +17,7 @@ class FlatModel : Model
     private:
         Matrix W;
         Matrix D;
-        double update(const feature_node* x, const double lr); /* forward & backward pass */
+        double update(const feature_node* x, const unsigned long y, const double lr); /* forward & backward pass */
         void backward(const feature_node* x, const double lr); /* backward pass */
         std::string getWeightVector();
         void setWeightVector(std::string w_str);

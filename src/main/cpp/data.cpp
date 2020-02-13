@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Data processor
+    Data processor
 */
 
 #include "data.h"

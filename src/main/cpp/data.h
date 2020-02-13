@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Header data processor 
+    Header data processor 
 */
 
 #ifndef DATA_U

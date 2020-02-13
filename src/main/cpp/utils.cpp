@@ -1,8 +1,9 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Some important math operations 
+    Some important math operations 
 
-   TODO: allow for sparse features
+    TODO: allow for sparse features
 */
 
 #include "utils.h"

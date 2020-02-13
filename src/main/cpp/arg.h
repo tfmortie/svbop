@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Header argument parser
+    Header argument parser
 */
 
 #ifndef ARG_U

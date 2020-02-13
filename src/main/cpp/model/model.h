@@ -1,6 +1,7 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Header shared between different models
+    Header shared between different models
 */
 
 #ifndef MODEL_U

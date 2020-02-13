@@ -1,9 +1,11 @@
-/* Author: Thomas Mortier 2019-2020
+/* 
+    Author: Thomas Mortier 2019-2020
 
-   Implementation of model based on h-softmax
+    Implementation of model based on h-softmax
 
-   TODO: comments
-   TODO: optimize (allow sparse features (feature_node))!
+    TODO: comments
+    TODO: optimize (allow sparse features (feature_node))!
+    TODO: implement predict_proba
 */
 
 #include "model/hierarchical.h"
@@ -247,22 +249,19 @@ HierModel::HierModel(const problem* prob) : Model(prob)
 
 HierModel::~HierModel()
 {
-    if (root != nullptr)
+    std::queue<HNode*> visit_list; 
+    visit_list.push(this->root);
+    while (!visit_list.empty())
     {
-        std::queue<HNode*> visit_list; 
-        visit_list.push(this->root);
-        while (!visit_list.empty())
+        HNode* visit_node = visit_list.front();
+        visit_list.pop();
+        if (!visit_node->chn.empty())
         {
-            HNode* visit_node = visit_list.front();
-            visit_list.pop();
-            if (!visit_node->chn.empty())
-            {
-                for(auto* c : visit_node->chn)
-                    visit_list.push(c);
-            }
-            // free node
-            delete visit_node;
+            for(auto* c : visit_node->chn)
+                visit_list.push(c);
         }
+        // free node
+        delete visit_node;
     }
 }
 
@@ -270,43 +269,33 @@ HierModel::~HierModel()
 
 void HierModel::printStruct()
 {
-    if (root != nullptr)
-        this->root->print();
+    this->root->print();
 }
 
 void HierModel::printInfo(const bool verbose)
 {
-    if (root != nullptr)
+    std::cout << "---------------------------------------------------\n";
+    std::cout << "[info] Hierarchical model: \n";
+    std::cout << "---------------------------------------------------\n";
+    std::cout << "  * Number of features              = " << this->getNrFeatures() << '\n';
+    std::cout << "  * Number of classes               = " << this->getNrClass() << '\n';
+    if (verbose)
     {
-        std::cout << "---------------------------------------------------\n";
-        std::cout << "[info] Hierarchical model: \n";
-        std::cout << "---------------------------------------------------\n";
-        std::cout << "  * Number of features              = " << this->getNrFeatures() << '\n';
-        std::cout << "  * Number of classes               = " << this->getNrClass() << '\n';
-        if (verbose)
-        {
-            std::cout << "  * Structure =\n";
-            this->printStruct();
-        }
-        std::cout << "---------------------------------------------------\n\n";
+        std::cout << "  * Structure =\n";
+        this->printStruct();
     }
-    else
-    {
-        std::cerr << "[warning] Model has not been constructed yet!\n";
-    }
+    std::cout << "---------------------------------------------------\n\n";
 }
 
 void HierModel::performCrossValidation(unsigned int k)
 {
-    if (this->root != nullptr && this->prob != nullptr)
+    if (this->prob != nullptr)
     {
         std::cout << "---- " << k << "-Fold CV ----\n";
         // first create index vector
         std::vector<unsigned long> ind_arr;
         for(unsigned long i=0; i<this->prob->n; ++i)
-        {
             ind_arr.push_back(i);
-        }
         // now shuffle index vector 
         auto rng = std::default_random_engine {};
         std::shuffle(std::begin(ind_arr), std::end(ind_arr), rng);
@@ -332,8 +321,8 @@ void HierModel::performCrossValidation(unsigned int k)
             {
                 if (std::find(testfold_ind.begin(), testfold_ind.end(), n) == testfold_ind.end())
                 {
-                    double pred {this->predict(this->prob->X[n])};
-                    double targ {this->prob->y[n]};
+                    unsigned long pred {this->predict(this->prob->X[n])};
+                    unsigned long targ {this->prob->y[n]};
                     acc += (pred==targ);
                     n_cntr += 1.0;
                 }
@@ -343,8 +332,8 @@ void HierModel::performCrossValidation(unsigned int k)
             n_cntr = 0.0;
             for (unsigned long n = 0; n<testfold_ind.size(); ++n)
             {
-                double pred {this->predict(this->prob->X[testfold_ind[n]])};
-                double targ {this->prob->y[testfold_ind[n]]};
+                unsigned long pred {this->predict(this->prob->X[testfold_ind[n]])};
+                unsigned long targ {this->prob->y[testfold_ind[n]]};
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
@@ -357,10 +346,7 @@ void HierModel::performCrossValidation(unsigned int k)
     }
     else
     {
-        if(this->root == nullptr)
-            std::cerr << "[warning] Model has not been constructed yet!\n";
-        else
-            std::cerr << "[warning] Model is in predict mode!\n";
+        std::cerr << "[warning] Model is in predict mode!\n";
     }
 }
 
@@ -491,9 +477,7 @@ unsigned long HierModel::getNrFeatures()
         return this->root->W.d;
 }
 
-/*
-
-    Important: all attributes, to be saved, are required to be stored before w!
+/*  Important: all attributes, to be saved, are required to be stored before w!
     TODO: catch possible exceptions in this function (might become non-void eventually)
 */
 void HierModel::save(const char* model_file_name)
@@ -503,7 +487,6 @@ void HierModel::save(const char* model_file_name)
     {
         // create output file stream
         std::ofstream model_file;
-        // TODO: add check whether below was successfull
         model_file.open(model_file_name, std::ofstream::trunc);
         // STRUCT
         model_file << "struct [";
@@ -538,9 +521,7 @@ void HierModel::save(const char* model_file_name)
         model_file.close();
     }
     else
-    {
         std::cerr << "[warning] Model is in predict mode!\n";
-    }
 }
 
 void HierModel::load(const char* model_file_name)
