@@ -1,13 +1,13 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Argument parser
+   Argument parser
 */
 
 #include <iostream>
 #include <string>
 #include "arg.h"
 
+/* print help information to stderr */
 void showHelp()
 {
     std::cerr << R"help(  
@@ -21,23 +21,21 @@ void showHelp()
     args:
         -i, --input             Training/prediction data in LIBSVM format
         -t, --type              Model type for training
-                0 := L1-regularized logistic regression
-                1 := L2-regularized logistic regression (dual)
-                2 := hierarchical softmax
-        -m, --model             Model path for predicting/saving
-        -h, --hierarchy         Hierarchy path (HSM)
+                0 := softmax with SGD
+                1 := hierarchical softmax with SGD
+        -s, --struct            Structure classification problem
         -b, --bias              Bias for linear model 
               >=0 := bias included 
               <0  := bias not included 
-        -C, --C                 The cost of constraints violation (LR)
-        -e, --eps               Stopping criteria (LR)
-        -ne, --nepochs          Number of epochs (HSM)
-        -lr, --learnrate        Learning rate (HSM)
+        -ne, --nepochs          Number of epochs
+        -lr, --learnrate        Learning rate 
         -d, --dim               Number of features of dataset (bias not included)
+        -m, --model             Model path for predicting/saving
     )help"; 
     exit(1);
 }
 
+/* parse arguments provided to main call */
 void parseArgs(int argc, char** args, ParseResult& presult)
 {
     // commands/arguments specified?
@@ -81,15 +79,11 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             // process value for argument -t
             if (static_cast<std::string>(args[i+1]).compare("0") == 0)
             {
-                presult.model_type = ModelType::L1_LR_PRIMAL;
-            }
-            else if (static_cast<std::string>(args[i+1]).compare("1") == 0)
-            {
-                presult.model_type = ModelType::L1_LR_DUAL;
+                presult.model_type = ModelType::SOFTMAX;
             }
             else
             {
-                presult.model_type = ModelType::HS;
+                presult.model_type = ModelType::HSOFTMAX;
             }
             ++i;
         }
@@ -117,18 +111,6 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             presult.num_features = std::stoi(args[i+1]);
             ++i;
         }
-        // check for -C, --C
-        else if (static_cast<std::string>(args[i]).compare("-C") == 0 || static_cast<std::string>(args[i]).compare("--C") == 0)
-        {
-            presult.C = std::stod(args[i+1]);
-            ++i;
-        }
-        // check for -e, --eps
-        else if (static_cast<std::string>(args[i]).compare("-e") == 0 || static_cast<std::string>(args[i]).compare("--eps") == 0)
-        {
-            presult.eps = std::stod(args[i+1]);
-            ++i;
-        }
         // check for -ne, --nepochs
         else if (static_cast<std::string>(args[i]).compare("-ne") == 0 || static_cast<std::string>(args[i]).compare("--nepochs") == 0)
         {
@@ -149,7 +131,9 @@ void parseArgs(int argc, char** args, ParseResult& presult)
     }
 }
 
-// TODO: check if all information relevant for the problem is specified through ParseResult
+/* Check correctness of provided arguments
+   TODO: check if all information relevant for the problem is specified through ParseResult
+*/
 void checkArgs(const ParseResult& presult)
 {
     std::cout << "[info] Not implemented yet!\n";

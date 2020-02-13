@@ -1,23 +1,18 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Some important math operations 
+   Some important math operations 
+
+   TODO: allow for sparse features
 */
 
 #include "utils.h"
-#include "liblinear/linear.h"
 #include <cmath>
 #include <assert.h>
 #include <random>
 #include <iostream>
 #include <algorithm>
 
-// TODO: in future perhaps use LAPACK/BLAS for matrix/vector multiplications...
-// TODO: optimize (allow sparse features (feature_node))!
-
-/*
-y = alpha*W.Tx
-*/
+/* y = alpha*W.Tx */
 void dgemv(const double alpha, const double** W, const double* x, double* y, const unsigned long d, const unsigned long k)
 {
     for (unsigned long j=0; j<k; ++j)
@@ -27,9 +22,7 @@ void dgemv(const double alpha, const double** W, const double* x, double* y, con
     }
 }
 
-/*
-D[:,i] = alpha*x
-*/
+/* D[:,i] = alpha*x */
 void dvscalm(const double alpha, const double* x, double** D, const unsigned long d, const unsigned long k, const unsigned long i)
 {
     assert(i<k);
@@ -37,18 +30,14 @@ void dvscalm(const double alpha, const double* x, double** D, const unsigned lon
         D[n][i] = alpha*x[n];
 }
 
-/*
-x = alpha*x
-*/
+/* x = alpha*x */
 void dvscal(const double alpha, double* x, const unsigned long d)
 {
     for (unsigned long i=0; i<d; ++i)
         x[i] = x[i]*alpha;
 }
 
-/*
-W[:][i] = W[:][i]-alpha*D[:][i]
-*/
+/* W[:][i] = W[:][i]-alpha*D[:][i] */
 void dsubmv(const double alpha, double** W, const double** D, const unsigned long d, const unsigned long k, const unsigned long i)
 {
     assert(i<k);
@@ -56,9 +45,7 @@ void dsubmv(const double alpha, double** W, const double** D, const unsigned lon
         W[n][i] = W[n][i]-(alpha*D[n][i]);
 }
 
-/*
-x = exp(x)/sum(exp(x))
-*/
+/* x = exp(x)/sum(exp(x)) */
 void softmax(double* x, const unsigned long d)
 {
     // first calculate max 
@@ -74,6 +61,7 @@ void softmax(double* x, const unsigned long d)
     dvscal(1/Z, x, d);
 }
 
+/* function which init. W with values from uniform distribution U(min, max) */
 void initUW(const double min, const double max, double** W, const unsigned long d, const unsigned long k)
 {
     // create rng
@@ -88,10 +76,7 @@ void initUW(const double min, const double max, double** W, const unsigned long 
     }
 }
 
-/*
-Transforms feature_node array to double array
-TODO: let code work with sparse feature vectors!
-*/
+/* transforms feature_node array to double array */
 double* ftvToArr(const feature_node *x, const unsigned long size)
 {
     double* arr = new double[size]();

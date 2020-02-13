@@ -1,7 +1,6 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Data processor
+   Data processor
 */
 
 #include "data.h"
@@ -12,25 +11,29 @@ Data processor
 #include <vector>
 #include <iterator>
 
+/* set problem based on parsed arguments */
 void getProblem(ParseResult &presult, problem &p)
 {
-    // initialize vars that are already determined
-    p.bias = presult.bias;
-    p.n = presult.num_features + ((p.bias > -1) ? 1 : 0);
-    // get number of observations 
-    p.l = getSizeData(presult.file_path);
+    // get number of observations and features (+ bias)
+    p.n = getSizeData(presult.file_path);
+    p.d = presult.num_features + ((p.bias > -1) ? 1 : 0);
+    // add structure classification problem 
+    p.hstruct = processHierarchy(presult.hierarchy_path);
     // get x (features) and y (labels)
-    p.y = new double[static_cast<unsigned long>(p.l)];
-    p.x = new feature_node*[static_cast<unsigned long>(p.l)];
+    p.y = new unsigned long[p.n];
+    p.X = new feature_node*[p.n];
+    // and bias
+    p.bias = presult.bias;
     processData(presult.file_path, p);
-    // add hierarchy struct in case of hierarchical model
-    if (presult.model_type == ModelType::HS)
-        p.h_struct = processHierarchy(presult.hierarchy_path);
+    // and number of epochs and learning rate 
+    p.ne = presult.ne;
+    p.lr = presult.lr;
 }
 
-int getSizeData(const std::string &file)
+/* get size of data */
+unsigned long getSizeData(const std::string &file)
 {
-    int n {0};
+    unsigned long n {0};
     std::ifstream in {file};
     std::string buf;
     while (std::getline(in, buf))
@@ -38,11 +41,12 @@ int getSizeData(const std::string &file)
     return n;
 }
 
+/* read and write data in problem object */
 void processData(const std::string &file, problem &p)
 {
     std::ifstream in {file};
     std::string line;
-    unsigned int i {0};
+    unsigned long i {0};
     try
     {
         while (std::getline(in, line))
@@ -52,11 +56,11 @@ void processData(const std::string &file, problem &p)
             std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
             // we can now init our feature_node row
             if (p.bias > -1)
-                p.x[i] = new feature_node[static_cast<unsigned long>(tokens.size()+1)]; // +1 for bias and terminator
+                p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size()+1)]; // +1 for bias and terminator
             else
-                p.x[i] = new feature_node[static_cast<unsigned long>(tokens.size())]; 
+                p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size())]; 
             // assign class 
-            p.y[i] = std::stod(tokens[0]);
+            p.y[i] = std::stol(tokens[0]);
             for (unsigned int j=1; j<tokens.size(); ++j)
             {
                 try 
@@ -65,8 +69,8 @@ void processData(const std::string &file, problem &p)
                     std::string str_int {tokens[j].substr(0, tokens[j].find(":"))};
                     std::string str_double {tokens[j].substr(tokens[j].find(":")+1, std::string::npos)};
                     // now assign to feature_node
-                    p.x[i][j-1].index = std::stoi(str_int)+1;
-                    p.x[i][j-1].value = std::stold(str_double);  
+                    p.X[i][j-1].index = std::stol(str_int)+1;
+                    p.X[i][j-1].value = std::stod(str_double);  
                 }
                 catch( std::exception& e)
                 {
@@ -77,15 +81,15 @@ void processData(const std::string &file, problem &p)
             // add bias if needed
             if (p.bias > -1)
             {
-                p.x[i][tokens.size()-1].index = p.n;
-                p.x[i][tokens.size()-1].value = p.bias;
-                p.x[i][tokens.size()].index = -1;
-                p.x[i][tokens.size()].value = 0.0;
+                p.X[i][tokens.size()-1].index = p.d;
+                p.X[i][tokens.size()-1].value = p.bias;
+                p.X[i][tokens.size()].index = -1;
+                p.X[i][tokens.size()].value = 0.0;
             }
             // add terminator
             unsigned long offset {static_cast<unsigned long>((p.bias > -1 ? 0 : -1))};
-            p.x[i][tokens.size()+offset].index = -1;
-            p.x[i][tokens.size()+offset].value = 0.0;
+            p.X[i][tokens.size()+offset].index = -1;
+            p.X[i][tokens.size()+offset].value = 0.0;
             ++i;
         }
     }
@@ -96,7 +100,8 @@ void processData(const std::string &file, problem &p)
     }
 }
 
-std::vector<std::vector<int>> processHierarchy(const std:: string &file)
+/* read and process hierarchy from file */
+std::vector<std::vector<unsigned long>> processHierarchy(const std:: string &file)
 {
     // first check if file only consists of one line 
     if (getSizeData(file) > 1)
@@ -106,7 +111,7 @@ std::vector<std::vector<int>> processHierarchy(const std:: string &file)
     }
     std::ifstream in {file};
     std::string line;
-    std::vector<std::vector<int>> h_struct;
+    std::vector<std::vector<unsigned long>> h_struct;
     try
     {
         while (std::getline(in, line))
@@ -120,9 +125,10 @@ std::vector<std::vector<int>> processHierarchy(const std:: string &file)
     return h_struct;
 }
 
-std::vector<std::vector<int>> strToHierarchy(std::string str)
+/* convert string representation of hierarchy to nested vector representation */
+std::vector<std::vector<unsigned long>> strToHierarchy(std::string str)
 {
-    std::vector<std::vector<int>> h_struct;
+    std::vector<std::vector<unsigned long>> h_struct;
     // remove leading and trailing garbage
     str = str.substr(2, str.length()-4);
     // as long as we have more than one index array continue
@@ -141,23 +147,25 @@ std::vector<std::vector<int>> strToHierarchy(std::string str)
     return h_struct;
 }
 
-std::vector<int> arrToVec(const std::string &s)
+/* convert string of format {[0-9][0-9]*,}*[0-9] to vector */
+std::vector<unsigned long> arrToVec(const std::string &s)
 {
     std::string const DELIM {","};
-    std::vector<int> ret_vec {};
+    std::vector<unsigned long> ret_vec {};
     std::string substr {s};
     while (substr.find(DELIM) != std::string::npos)
     {
         auto delim_loc {substr.find(DELIM)};
-        ret_vec.push_back(std::stoi(substr.substr(0, delim_loc)));
+        ret_vec.push_back(std::stol(substr.substr(0, delim_loc)));
         substr = substr.substr(delim_loc+1, substr.length()-delim_loc-DELIM.length());
     }
     // make sure to process the last bit of our string
-    ret_vec.push_back(std::stoi(substr));
+    ret_vec.push_back(std::stol(substr));
     return ret_vec;
 }
 
-std::string vecToArr(const std::vector<int> &v)
+/* convert vector to string with format [{[0-9][0-9]*,}*[0-9]] */
+std::string vecToArr(const std::vector<unsigned long> &v)
 {
     std::string ret_arr;
     ret_arr += '[';
@@ -172,5 +180,3 @@ std::string vecToArr(const std::vector<int> &v)
     ret_arr += "]";
     return ret_arr;
 }
-
-

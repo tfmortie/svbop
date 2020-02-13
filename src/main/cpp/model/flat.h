@@ -1,39 +1,43 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Header flat model
+   Header flat model
 */
-
-// TODO: finalize comments
 
 #ifndef FLAT_H
 #define FLAT_H
 
-#include "liblinear/linear.h"
 #include <iostream>
+#include <vector>
+#include <string>
 
-class FlatModel 
+/* main class (flat) softmax model */
+class FlatModel : Model
 {
     private:
-        const problem* prob;
-        const parameter* param;
-        model* model;
-        int* class_to_label_dict;
+        Matrix W;
+        Matrix D;
+        double update(const feature_node* x, const double lr); /* forward & backward pass */
+        void backward(const feature_node* x, const double lr); /* backward pass */
+        std::string getWeightVector();
+        void setWeightVector(std::string w_str);
         void free();
 
     public:
-        FlatModel(const problem* prob, const parameter* param) : prob{prob}, param{param}, model{nullptr} {};
-        FlatModel(const char* model_file_name);
+        FlatModel(const problem* prob);
+        FlatModel(const char* model_file_name) : Model(model_file_name) {};
         ~FlatModel();
 
-        void printInfo();
-        void performCrossValidation();
-        void fit();
-        double predict(const feature_node* x);
-        void predict_proba(const feature_node* x, double* prob_estimates);
-        void checkParam();
-        int getNrClass();
+        void printStruct();
+        void printInfo(const bool verbose = 0);
+        void performCrossValidation(unsigned int k);
+        void reset();
+        void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
+        unsigned long predict(const feature_node* x);
+        double predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
+        unsigned long getNrClass();
+        unsigned long getNrFeatures();
         void save(const char* model_file_name);
+        void load(const char* model_file_name);
 };
 
 #endif

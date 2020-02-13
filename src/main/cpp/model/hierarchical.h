@@ -1,10 +1,7 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Header hierarchical model
+   Header hierarchical softmax model
 */
-
-// TODO: finalize comments
 
 #ifndef HIER_H
 #define HIER_H
@@ -12,71 +9,52 @@ Header hierarchical model
 #include <iostream>
 #include <vector>
 #include <string>
-#include "liblinear/linear.h"
+#include "model/model.h"
 
-/* Weight matrix */
-struct W_hnode
-{
-    double** value; /* should be D x K */
-    unsigned long d; /* D */
-    unsigned long k; /* K */
-};
-
-/* Delta matrix for backward pass */
-struct D_hnode
-{
-    double** value;
-    unsigned long d; /* D */
-    unsigned long k; /* K */
-};
-
-/*
-Class which represents a node in HierModel
-*/
+/* class which represents a node in the hierarchical softmax model */
 class HNode
 {
-    private:
-        W_hnode W;
-        D_hnode D;
-        void free();   
-
     public: 
-        HNode(const problem& prob); /* will be called on root */
-        HNode(std::vector<int> y, const problem& prob);
-        ~HNode();
+        Matrix W;
+        Matrix D;
 
-        std::vector<int> y;
+        HNode(const problem& prob); /* will be called on root */
+        HNode(std::vector<unsigned long> y, const problem& prob);
+        ~HNode();
+        
+        std::vector<unsigned long> y;
         std::vector<HNode*> chn;
-        unsigned int predict(const feature_node* x); /* predict child/branch */
-        double update(const feature_node* x, const long ind, const double lr); /* forward & backward pass */
+        unsigned long predict(const feature_node* x); /* predict child/branch */
+        double update(const feature_node* x, const unsigned long ind, const double lr); /* forward pass & call backward pass */
         void backward(const feature_node* x, const double lr); /* backward pass */
         void reset();
-        void addChildNode(std::vector<int> y, const problem& p);     
-        unsigned long getNrFeatures();
+        void addChildNode(std::vector<unsigned long> y, const problem& p);     
         std::string getWeightVector();
         void setWeightVector(std::string w_str);
         void print();
+        void free();
 };
 
-class HierModel
+/* main class hierarchical softmax model */
+class HierModel : Model
 {
     private:
-        const problem* prob;
-        const parameter* param;
         HNode* root;
         
     public:
-        HierModel(const problem* prob, const parameter* param);
-        HierModel(const char* model_file_name);
+        HierModel(const problem* prob);
+        HierModel(const char* model_file_name) : Model(model_file_name) {};
         ~HierModel();
 
         void printStruct();
         void printInfo(const bool verbose = 0);
         void performCrossValidation(unsigned int k);
         void reset();
-        void fit(const std::vector<unsigned int>& ign_index = {}, const bool verbose = 1);
-        double predict(const feature_node* x);
-        int getNrClass();
+        void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
+        unsigned long predict(const feature_node* x);
+        double predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
+        unsigned long getNrClass();
+        unsigned long getNrFeatures();
         void save(const char* model_file_name);
         void load(const char* model_file_name);
 };

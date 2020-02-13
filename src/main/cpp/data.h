@@ -1,24 +1,22 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Data processor
+   Header data processor 
 */
 
 #ifndef DATA_U
 #define DATA_U
 
 #include "arg.h"
-#include "liblinear/linear.h"
+#include "model/model.h"
 
-inline const std::string ARRDELIM {"],["};
+inline const std::string ARRDELIM {"],["}; /* seperator for extracting hierarchy */
 
 void getProblem(ParseResult &presult, problem &p);
-int getSizeData(const std::string &file);
+unsigned long getSizeData(const std::string &file);
 void processData(const std::string &file, problem &p);
-std::vector<std::vector<int>> processHierarchy(const std::string &file);
-std::vector<std::vector<int>> strToHierarchy(std::string str);
-std::vector<int> arrToVec(const std::string &s);
-std::string vecToArr(const std::vector<int> &v);
-
+std::vector<std::vector<unsigned long>> processHierarchy(const std::string &file);
+std::vector<std::vector<unsigned long>> strToHierarchy(std::string str);
+std::vector<unsigned long> arrToVec(const std::string &s);
+std::string vecToArr(const std::vector<unsigned long> &v);
 
 #endif

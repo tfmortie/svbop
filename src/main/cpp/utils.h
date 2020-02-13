@@ -1,15 +1,14 @@
-/*
-Author: Thomas Mortier 2019
+/* Author: Thomas Mortier 2019-2020
 
-Header utils  
+   Header utils  
 */
 
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "liblinear/linear.h"
+#include "model/model.h"
 
-const double EPS = 0.001;
+const double EPS = 0.001; /* min. cut-off for probability (avoid log underflow) */ 
 
 void dgemv(const double alpha, const double** W, const double* x, double* y, const unsigned long d, const unsigned long k);
 void dvscalm(const double alpha, const double* x, double** D, const unsigned long d, const unsigned long k, const unsigned long i);
