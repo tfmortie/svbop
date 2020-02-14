@@ -53,7 +53,7 @@ class HierModel : Model
         void reset();
         void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
         unsigned long predict(const feature_node* x);
-        double predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
+        std::vector<unsigned long> predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
         unsigned long getNrClass();
         unsigned long getNrFeatures();
         void save(const char* model_file_name);

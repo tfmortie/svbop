@@ -3,8 +3,6 @@
 
     Implementation of model based on h-softmax
 
-    TODO: comments
-    TODO: optimize (allow sparse features (feature_node))!
     TODO: implement predict_proba
     TODO: check whether backward step can be optimized (ie, no updates needed for all W's, for a given node)
 */
@@ -27,6 +25,7 @@
 
 /* CONSTRUCTORS AND DESTRUCTOR */
 
+/* will only be called on root */
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
@@ -40,6 +39,7 @@ HNode::HNode(const problem &prob)
         this->addChildNode(prob.hstruct[i], prob);    
 }   
 
+/* constructor for all nodes except root */
 HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
 {
     // only init D if internal node!
@@ -59,6 +59,14 @@ HNode::~HNode()
 
 /* PUBLIC */
 
+/*
+    Predict branch, given instance.
+
+    Arguments:
+        x: feature node
+    Return: 
+        index branch with highest (conditional) probability
+*/
 unsigned long HNode::predict(const feature_node *x)
 {
     // forward step
@@ -73,6 +81,16 @@ unsigned long HNode::predict(const feature_node *x)
     return max_i;
 }
 
+/*
+    Forward pass and backprop call.
+
+    Arguments:
+        x: feature node
+        ind: index for branch to be updated
+        lr: learning rate for SGD
+    Return: 
+        probability for branch with index ind (needed for loss)
+*/
 double HNode::update(const feature_node *x, const unsigned long ind, const double lr)
 {
     // forward step
@@ -100,18 +118,33 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
     return p;
 }
 
+/*
+    Backprop.
+
+    Arguments:
+        x: feature node
+        lr: learning rate for SGD
+*/
 void HNode::backward(const feature_node *x, const double lr)
 {
     for (unsigned long i=0; i<this->W.k; ++i)
         dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
 }
 
+/* reinitialize W */
 void HNode::reset()
 {
     // reinitialize W
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
 
+/*
+    Add new node with label set y to current node.
+
+    Arguments:
+        y: label set for new node to be added
+        prob: problem instance
+*/
 void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
 {
     // todo: optimize?
@@ -164,6 +197,7 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
     }
 }
 
+/* deallocate memory (W and D) for current node */
 void HNode::free()
 {
     if (this->y.size() > 1)
@@ -178,6 +212,7 @@ void HNode::free()
     }
 }  
 
+/* returns weights for current node in string representation (row-major order, space separated) */
 std::string HNode::getWeightVector()
 {
     std::string ret_arr;
@@ -196,6 +231,7 @@ std::string HNode::getWeightVector()
     return ret_arr;
 }
 
+/* set weights in string representation (row-major order, space separated) */ 
 void HNode::setWeightVector(std::string w_str)
 {
     // convert string to input stream
@@ -210,6 +246,7 @@ void HNode::setWeightVector(std::string w_str)
     }
 }
 
+/* print node */
 void HNode::print()
 {
     std::ostringstream oss;
@@ -236,12 +273,14 @@ void HNode::print()
 
 /* CONSTRUCTOR AND DESTRUCTOR */
 
+/* constructor (training mode) */
 HierModel::HierModel(const problem* prob) : Model(prob)
 {
     // construct tree 
     root = new HNode(*prob);
 }
 
+/* constructor (predict mode) */
 HierModel::HierModel(const char* model_file_name) : Model(model_file_name)
 {
     std::cout << "Loading model from " << model_file_name << "...\n";
@@ -268,11 +307,13 @@ HierModel::~HierModel()
 
 /* PUBLIC */
 
+/* print structure of hierarchy */
 void HierModel::printStruct()
 {
     this->root->print();
 }
 
+/* print some general information about model */
 void HierModel::printInfo(const bool verbose)
 {
     std::cout << "---------------------------------------------------\n";
@@ -288,6 +329,7 @@ void HierModel::printInfo(const bool verbose)
     std::cout << "---------------------------------------------------\n\n";
 }
 
+/* k-fold cross-validation */
 void HierModel::performCrossValidation(unsigned int k)
 {
     if (this->prob != nullptr)
@@ -351,6 +393,7 @@ void HierModel::performCrossValidation(unsigned int k)
     }
 }
 
+/* reset all nodes model */
 void HierModel::reset()
 {
     if (root != nullptr)
@@ -377,6 +420,7 @@ void HierModel::reset()
     }
 }
 
+/* fit on data (in problem instance), while ignoring instances with ind in ign_index */
 void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
     std::cout << "Fit model...\n";
@@ -439,6 +483,14 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     }
 }
 
+/*
+    Return label (class) of leaf node with highest probability mass.
+
+    Arguments:
+        x: feature node
+    Return: 
+        label (class) of leaf node 
+*/
 unsigned long HierModel::predict(const feature_node *x)
 {
     if (root == nullptr)
@@ -456,12 +508,23 @@ unsigned long HierModel::predict(const feature_node *x)
     }
 }
 
-double HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+/*
+    Calculate probability masses for one or more leaf nodes.
+
+    Arguments:
+        x: feature node
+        ind: vector of labels of leaf nodes for which to calculate probability mass
+        p: vector of probabilities
+    Return: 
+        vector of probabilities
+*/
+std::vector<unsigned long> HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
 {
     std::cerr << "[error] Not implemented yet!\n";
-    return -1.0;
+    return ind;
 }
-    
+
+/* get number of classes */
 unsigned long HierModel::getNrClass()
 {
     if (this->prob != nullptr)
@@ -470,6 +533,7 @@ unsigned long HierModel::getNrClass()
         return this->root->W.k;
 }
 
+/* get number of features (bias included) */ 
 unsigned long HierModel::getNrFeatures()
 {
     if (this->prob != nullptr)
@@ -478,9 +542,7 @@ unsigned long HierModel::getNrFeatures()
         return this->root->W.d;
 }
 
-/*  Important: all attributes, to be saved, are required to be stored before w!
-    TODO: catch possible exceptions in this function (might become non-void eventually)
-*/
+/* save model to file */
 void HierModel::save(const char* model_file_name)
 {
     std::cout << "Saving model to " << model_file_name << "...\n";
@@ -525,6 +587,7 @@ void HierModel::save(const char* model_file_name)
         std::cerr << "[warning] Model is in predict mode!\n";
 }
 
+/* load model from file */
 void HierModel::load(const char* model_file_name)
 {
     problem* prob = new problem{}; 

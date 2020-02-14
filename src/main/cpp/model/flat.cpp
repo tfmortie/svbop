@@ -21,6 +21,7 @@
 
 /* CONSTRUCTOR AND DESTRUCTOR */
 
+/* constructor (training mode) */
 FlatModel::FlatModel(const problem* prob) : Model(prob)
 {
     // create W & D matrix
@@ -35,6 +36,7 @@ FlatModel::FlatModel(const problem* prob) : Model(prob)
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
 
+/* constructor (predict mode) */
 FlatModel::FlatModel(const char* model_file_name) : Model(model_file_name)
 {
     std::cout << "Loading model from " << model_file_name << "...\n";
@@ -49,7 +51,14 @@ FlatModel::~FlatModel()
 /* PRIVATE */
 
 /*
-  
+    Forward pass and backprop call.
+
+    Arguments:
+        x: feature node
+        y: class for which to calculate the probability (needed for loss)
+        lr: learning rate for SGD
+    Return: 
+        probability for class y (needed for loss)
 */
 double FlatModel::update(const feature_node* x, const unsigned long y, const double lr)
 {
@@ -78,12 +87,20 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
     return p;
 }
 
+/*
+    Backprop.
+
+    Arguments:
+        x: feature node
+        lr: learning rate for SGD
+*/
 void FlatModel::backward(const feature_node* x, const double lr)
 {
     for (unsigned long i=0; i<this->W.k; ++i)
         dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
 }
 
+/* returns weights in string representation (row-major order, space separated) */
 std::string FlatModel::getWeightVector()
 {
     std::string ret_arr;
@@ -102,6 +119,7 @@ std::string FlatModel::getWeightVector()
     return ret_arr;
 }
 
+/* set weights in string representation (row-major order, space separated) */ 
 void FlatModel::setWeightVector(std::string w_str)
 {
     // convert string to input stream
@@ -116,6 +134,7 @@ void FlatModel::setWeightVector(std::string w_str)
     }
 }
 
+/* deallocate memory (W and D) for current node */
 void FlatModel::free()
 {
     for (unsigned long i = 0; i < this->W.d; ++i)
@@ -129,6 +148,7 @@ void FlatModel::free()
 
 /* PUBLIC */ 
 
+/* print structure of classification problem */
 void FlatModel::printStruct()
 {
     if (this->prob == nullptr)
@@ -142,6 +162,7 @@ void FlatModel::printStruct()
         std::cout << vecToArr(this->prob->hstruct[0]) << '\n';
 }
 
+/* print some general information about model */
 void FlatModel::printInfo(const bool verbose)
 {
     std::cout << "---------------------------------------------------\n";
@@ -157,6 +178,7 @@ void FlatModel::printInfo(const bool verbose)
     std::cout << "---------------------------------------------------\n\n";
 }
 
+/* k-fold cross-validation */
 void FlatModel::performCrossValidation(unsigned int k)
 {
     if (this->prob != nullptr)
@@ -218,12 +240,14 @@ void FlatModel::performCrossValidation(unsigned int k)
         std::cerr << "[warning] Model is in predict mode!\n";
 }
 
+/* reset model (ie, weights) */
 void FlatModel::reset()
 {
     // reinitialize W
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
 
+/* fit on data (in problem instance), while ignoring instances with ind in ign_index */
 void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
     std::cout << "Fit model...\n";
@@ -259,7 +283,12 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
 }
 
 /*
+    Return class with highest probability mass.
 
+    Arguments:
+        x: feature node
+    Return: 
+        class
 */
 unsigned long FlatModel::predict(const feature_node* x)
 {
@@ -276,25 +305,35 @@ unsigned long FlatModel::predict(const feature_node* x)
     return max_i+1;
 }
 
-double FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+/*
+    Calculate probability masses for one or more classes.
+
+    Arguments:
+        x: feature node
+        ind: vector of classes for which to calculate probability mass
+        p: vector of probabilities
+    Return: 
+        vector of probabilities
+*/
+std::vector<unsigned long> FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
 {
     std::cerr << "[error] Not implemented yet!\n";
     return -1.0;
 }
 
+/* get number of classes */
 unsigned long FlatModel::getNrClass()
 {
     return this->W.k;
 }
 
+/* get number of features (bias included) */ 
 unsigned long FlatModel::getNrFeatures()
 {
     return this->W.d;
 }
 
-/*  Important: all attributes, to be saved, are required to be stored before w!
-    TODO: catch possible exceptions in this function (might become non-void eventually)
-*/
+/* save model to file */
 void FlatModel::save(const char* model_file_name)
 {
     std::cout << "Saving model to " << model_file_name << "...\n";
@@ -324,6 +363,7 @@ void FlatModel::save(const char* model_file_name)
         std::cerr << "[warning] Model is in predict mode!\n";
 }
 
+/* load model from file */
 void FlatModel::load(const char* model_file_name)
 {
     problem* prob = new problem{}; 
