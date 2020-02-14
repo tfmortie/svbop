@@ -26,6 +26,7 @@ class HNode
         std::vector<unsigned long> y;
         std::vector<HNode*> chn;
         unsigned long predict(const feature_node* x); /* predict child/branch */
+        double predict(const feature_node* x, const unsigned long ind); /* get branch probability of child node with index ind */
         double update(const feature_node* x, const unsigned long ind, const double lr); /* forward pass & call backward pass */
         void backward(const feature_node* x, const double lr); /* backward pass */
         void reset();
@@ -53,7 +54,7 @@ class HierModel : Model
         void reset();
         void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
         unsigned long predict(const feature_node* x);
-        std::vector<unsigned long> predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
+        std::vector<double> predict_proba(const feature_node* x, const std::vector<unsigned long> yv = {});
         unsigned long getNrClass();
         unsigned long getNrFeatures();
         void save(const char* model_file_name);

@@ -82,6 +82,31 @@ unsigned long HNode::predict(const feature_node *x)
 }
 
 /*
+    Get probability of branch, given instance.
+
+    Arguments:
+        x: feature node
+        ind: index of branch
+    Return: 
+        probability of branch with index ind
+*/
+double HNode::predict(const feature_node *x, const unsigned long ind)
+{
+    double prob {0.0};
+    // forward step
+    double* o {new double[this->W.k]()}; // array of exp
+    // Wtx
+    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+    // apply softmax
+    softmax(o, this->W.k);
+    // return prob
+    prob = o[ind];
+    // delete
+    delete[] o;
+    return prob;
+}
+
+/*
     Forward pass and backprop call.
 
     Arguments:
@@ -513,15 +538,48 @@ unsigned long HierModel::predict(const feature_node *x)
 
     Arguments:
         x: feature node
-        ind: vector of labels of leaf nodes for which to calculate probability mass
+        y: vector of labels of leaf nodes for which to calculate probability mass
         p: vector of probabilities
     Return: 
         vector of probabilities
 */
-std::vector<unsigned long> HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+std::vector<double> HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> yv)
 {
-    std::cerr << "[error] Not implemented yet!\n";
-    return ind;
+    std::vector<double> probs; 
+    // run over all labels for which we need to calculate probs
+    for (unsigned long ye : yv)
+    {
+        // transform y to singleton set/vector
+        std::vector<unsigned long> y {ye};
+        // begin at root
+        HNode* visit_node = this->root;
+        double prob {1.0};
+        while (!visit_node->chn.empty())
+        {
+            long ind = -1;
+            for (unsigned long i = 0; i<visit_node->chn.size(); ++i)
+            { 
+                if (std::includes(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), y.begin(), y.end()) == 1)
+                {
+                    ind = static_cast<long>(i);
+                    break;
+                }  
+            }
+            if (ind != -1)
+            {
+                // (i_p<=EPS ? EPS : i_p) in case of underflow! (TODO: remove)
+                prob *= visit_node->predict(x, static_cast<unsigned long>(ind));
+                visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
+            }
+            else
+            {
+                std::cerr << "[error] label " << ye << " not found!\n";
+                exit(1);
+            }
+        }
+        probs.push_back(prob);
+    }
+    return probs;
 }
 
 /* get number of classes */
@@ -539,7 +597,7 @@ unsigned long HierModel::getNrFeatures()
     if (this->prob != nullptr)
         return this->prob->d;
     else
-        return this->root->W.d;
+        return this->root->W.d; 
 }
 
 /* save model to file */
@@ -559,7 +617,7 @@ void HierModel::save(const char* model_file_name)
         // and now last element
         model_file << vecToArr(this->prob->hstruct[this->prob->hstruct.size()-1]) << "]\n";
         // #features
-        model_file << "nr_feature " << this->prob->n << '\n';
+        model_file << "nr_feature " << this->prob->d << '\n';
         // bias
         model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
         // weights
@@ -610,7 +668,7 @@ void HierModel::load(const char* model_file_name)
                 if (tokens[0] == "struct")
                     prob->hstruct = strToHierarchy(tokens[1]);
                 else if(tokens[0] == "nr_feature")
-                    prob->n = static_cast<unsigned long>(std::stol(tokens[1]));
+                    prob->d = static_cast<unsigned long>(std::stol(tokens[1]));
                 else if(tokens[0] == "bias")
                     prob->bias = std::stod(tokens[1]);
                 else

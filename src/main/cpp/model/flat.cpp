@@ -310,15 +310,31 @@ unsigned long FlatModel::predict(const feature_node* x)
 
     Arguments:
         x: feature node
-        ind: vector of classes for which to calculate probability mass
+        yv: vector of classes for which to calculate probability mass
         p: vector of probabilities
     Return: 
         vector of probabilities
 */
-std::vector<unsigned long> FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+std::vector<double> FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> yv)
 {
-    std::cerr << "[error] Not implemented yet!\n";
-    return -1.0;
+    std::vector<double> probs; 
+    // run over all labels for which we need to calculate probs
+    for (unsigned long y : yv)
+    {
+        double prob {0.0};
+        // forward step
+        double* o {new double[this->W.k]()}; // array of exp
+        // Wtx
+        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        // apply softmax
+        softmax(o, this->W.k);
+        // get prob
+        prob = o[y-1];
+        // delete
+        delete[] o;
+        probs.push_back(prob);
+    }
+    return probs;
 }
 
 /* get number of classes */
@@ -350,9 +366,9 @@ void FlatModel::save(const char* model_file_name)
         // and now last element
         model_file << vecToArr(this->prob->hstruct[this->prob->hstruct.size()-1]) << "]\n";
         // #features
-        model_file << "nr_feature " << this->prob->n << '\n';
+        model_file << "nr_feature " << this->prob->d << '\n';
         // bias
-        model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
+        model_file << "bias " << (this->prob->bias >= 0.0 ? 1.0 : -1.0) << '\n';
         // weights
         model_file << "w \n";
         model_file << this->getWeightVector() << '\n';       
@@ -384,7 +400,7 @@ void FlatModel::load(const char* model_file_name)
                 if (tokens[0] == "struct")
                     prob->hstruct = strToHierarchy(tokens[1]);
                 else if(tokens[0] == "nr_feature")
-                    prob->n = static_cast<unsigned long>(std::stoi(tokens[1]));
+                    prob->d = static_cast<unsigned long>(std::stoi(tokens[1]));
                 else if(tokens[0] == "bias")
                     prob->bias = std::stod(tokens[1]);
                 else
@@ -394,7 +410,17 @@ void FlatModel::load(const char* model_file_name)
                 }
             }
             else
+            {
+                // first create W & D matrix
+                this->W = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
+                this->D = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
+                for (unsigned long i=0; i<prob->d; ++i)
+                {
+                    this->W.value[i] = new double[prob->hstruct[0].size()]{0};
+                    this->D.value[i] = new double[prob->hstruct[0].size()]{0};
+                }
                 this->setWeightVector(line);         
+            } 
         }
     }
     catch(std::ifstream::failure e)

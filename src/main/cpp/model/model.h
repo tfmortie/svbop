@@ -62,7 +62,7 @@ class Model
         virtual void reset() = 0;
         virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1) = 0;
         virtual unsigned long predict(const feature_node* x) = 0;
-        virtual std::vector<unsigned long> predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {}) = 0;
+        virtual std::vector<double> predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {}) = 0;
         virtual unsigned long getNrClass() = 0;
         virtual unsigned long getNrFeatures() = 0;
         virtual void save(const char* model_file_name) = 0;
