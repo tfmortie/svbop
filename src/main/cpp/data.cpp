@@ -29,6 +29,11 @@ void getProblem(ParseResult &presult, problem &p)
     // and number of epochs and learning rate 
     p.ne = presult.ne;
     p.lr = presult.lr;
+    // for h-softmax: check if slow or fast training
+    if (presult.model_type == ModelType::HSOFTMAXF)
+        p.fast = 1;
+    else
+        p.fast = 0;
 }
 
 /* get size of data */

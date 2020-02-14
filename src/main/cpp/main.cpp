@@ -24,7 +24,7 @@ int main(int argc, char** argv)
         problem prob;
         getProblem(parser_result, prob);
         // check if flat or hierarchical model
-        if (parser_result.model_type != ModelType::HSOFTMAX)
+        if (parser_result.model_type == ModelType::SOFTMAX)
         {
             FlatModel model = FlatModel(&prob);
             model.printInfo(0); 
@@ -49,7 +49,7 @@ int main(int argc, char** argv)
         problem prob;
         getProblem(parser_result, prob);
         // check if flat or hierarchical model
-        if (parser_result.model_type != ModelType::HSOFTMAX)
+        if (parser_result.model_type == ModelType::SOFTMAX)
         {
             FlatModel model = FlatModel(parser_result.model_path.c_str());
             model.printInfo(0);

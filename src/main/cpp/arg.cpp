@@ -23,7 +23,8 @@ void showHelp()
         -i, --input             Training/prediction data in LIBSVM format
         -t, --type              Model type for training
                 0 := softmax with SGD
-                1 := hierarchical softmax with SGD
+                1 := hierarchical softmax with SGD and slow training
+                2 := hierarchical sofmax with SGD and fast training
         -s, --struct            Structure classification problem
         -b, --bias              Bias for linear model 
               >=0 := bias included 
@@ -79,13 +80,11 @@ void parseArgs(int argc, char** args, ParseResult& presult)
         {
             // process value for argument -t
             if (static_cast<std::string>(args[i+1]).compare("0") == 0)
-            {
                 presult.model_type = ModelType::SOFTMAX;
-            }
+            else if (static_cast<std::string>(args[i+1]).compare("1") == 0)
+                presult.model_type = ModelType::HSOFTMAXS;
             else
-            {
-                presult.model_type = ModelType::HSOFTMAX;
-            }
+                presult.model_type = ModelType::HSOFTMAXF;
             ++i;
         }
         // check for -m, --model

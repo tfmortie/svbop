@@ -476,7 +476,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                         }
                         if (ind != -1)
                         {
-                            double i_p {visit_node->update(x, static_cast<unsigned long>(ind), this->prob->lr)};
+                            double i_p {visit_node->update(x, static_cast<unsigned long>(ind), this->prob->lr, this->prob->fast)};
                             i_loss += std::log2((i_p<=EPS ? EPS : i_p));
                             visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
                         }

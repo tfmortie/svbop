@@ -13,7 +13,8 @@
 /* type of model */
 enum class ModelType {
     SOFTMAX,
-    HSOFTMAX
+    HSOFTMAXS,
+    HSOFTMAXF
 };
 
 /* struct which allows for sparse feature representations */
@@ -35,6 +36,7 @@ struct problem
     /* LEARNING */
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
+    bool fast; /* fast backprop (h-softmax) */
 };
 
 /* matrix container for weight and delta matrices */
@@ -66,7 +68,7 @@ class Model
         virtual unsigned long getNrClass() = 0;
         virtual unsigned long getNrFeatures() = 0;
         virtual void save(const char* model_file_name) = 0;
-        virtual void load(const char* model_file_name) = 0; /* TODO: include error handling! */
+        virtual void load(const char* model_file_name) = 0; 
 };
 
 #endif
