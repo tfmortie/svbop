@@ -13,6 +13,23 @@
 #include <iostream>
 #include <algorithm>
 
+/* 
+    y = alpha*W.Tx
+    with feature_node x
+*/
+void dgemv(const double alpha, const double** W, const feature_node* x, double* y, const unsigned long k)
+{
+    for (unsigned long j=0; j<k; ++j)
+    {
+        unsigned long ind {0};
+        while (x[ind].index != -1)
+        {
+            y[j] += alpha*x[ind].value*W[x[ind].index-1][j];
+            ++ind;
+        }
+    }
+}
+
 /* y = alpha*W.Tx */
 void dgemv(const double alpha, const double** W, const double* x, double* y, const unsigned long d, const unsigned long k)
 {
@@ -20,6 +37,21 @@ void dgemv(const double alpha, const double** W, const double* x, double* y, con
     {
         for(unsigned long i=0; i<d; ++i)
             y[j] += alpha*x[i]*W[i][j];
+    }
+}
+
+/* 
+    D[:,i] = alpha*x 
+    with feature_node x
+*/
+void dvscalm(const double alpha, const feature_node* x, double** D, const unsigned long k, const unsigned long i)
+{
+    assert(i<k);
+    unsigned long ind {0};
+    while (x[ind].index != -1)
+    {
+        D[x[ind].index-1][i] = alpha*x[ind].value;
+        ++ind;
     }
 }
 

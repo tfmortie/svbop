@@ -48,14 +48,15 @@ FlatModel::~FlatModel()
 
 /* PRIVATE */
 
+/*
+  
+*/
 double FlatModel::update(const feature_node* x, const unsigned long y, const double lr)
 {
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
-    // convert feature_node arr to double arr
-    double* x_arr {ftvToArr(x, this->W.d)}; 
     // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
     // apply softmax
     softmax(o, this->W.k); 
     // set delta's 
@@ -67,13 +68,12 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
         else
             t = 0.0;
 
-        dvscalm((o[i]-t), x_arr, this->D.value, this->D.d, this->D.k, i);
+        dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
     }
     // backward step
     this->backward(x, lr);
     double p {o[y-1]};
     // delete
-    delete[] x_arr;
     delete[] o;
     return p;
 }
@@ -258,19 +258,20 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
         std::cerr << "[warning] Model is in predict mode!\n";
 }
 
+/*
+
+*/
 unsigned long FlatModel::predict(const feature_node* x)
 {
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
-    // convert feature_node arr to double arr
-    double* x_arr {ftvToArr(x, this->W.d)}; 
     // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    //dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
+    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
     // get index max
     double* max_o {std::max_element(o, o+this->W.k)}; 
     unsigned long max_i {static_cast<unsigned long>(max_o-o)};
     // delete
-    delete[] x_arr;
     delete[] o;
     return max_i+1;
 }
