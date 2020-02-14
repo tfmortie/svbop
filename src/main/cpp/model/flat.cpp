@@ -8,6 +8,7 @@
     TODO: implement predict_proba
 */
 
+#include "model/model.h"
 #include "model/flat.h"
 #include "data.h"
 #include "utils.h"
@@ -22,12 +23,22 @@
 
 FlatModel::FlatModel(const problem* prob) : Model(prob)
 {
-    // first init W matrix
-    this->W = Matrix{new double*[prob->n], prob->n, prob->hstruct[0].size()};
-    // init D vector
-    this->D = Matrix{new double*[prob->n], prob->n, 0};
-    // init W
+    // create W & D matrix
+    this->W = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
+    this->D = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
+    for (unsigned long i=0; i<prob->d; ++i)
+    {
+        this->W.value[i] = new double[prob->hstruct[0].size()];
+        this->D.value[i] = new double[prob->hstruct[0].size()]{0};
+    }
+    // initialize W matrix
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+}
+
+FlatModel::FlatModel(const char* model_file_name) : Model(model_file_name)
+{
+    std::cout << "Loading model from " << model_file_name << "...\n";
+    this->load(model_file_name);
 }
 
 FlatModel::~FlatModel()
@@ -131,7 +142,7 @@ void FlatModel::printStruct()
         std::cout << vecToArr(this->prob->hstruct[0]) << '\n';
 }
 
-void FlatModel::printInfo(const bool verbose = 0)
+void FlatModel::printInfo(const bool verbose)
 {
     std::cout << "---------------------------------------------------\n";
     std::cout << "[info] Flat model: \n";
@@ -168,8 +179,8 @@ void FlatModel::performCrossValidation(unsigned int k)
             // first clear weights 
             this->reset();
             // extract test fold indices
-            std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + iter*ns_fold;
-            std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + (iter+1)*ns_fold;
+            std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>(iter)*ns_fold);
+            std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>((iter+1))*ns_fold);
             std::vector<unsigned long> testfold_ind(i_start, i_stop);
             // now start fitting 
             this->fit(testfold_ind, 0);
@@ -213,12 +224,12 @@ void FlatModel::reset()
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
 
-void FlatModel::fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1)
+void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
     std::cout << "Fit model...\n";
     if (this->prob != nullptr)
     {
-        int e_cntr {0};
+        unsigned int e_cntr {0};
         while (e_cntr < this->prob->ne)
         {
             double e_loss {0.0};
@@ -261,10 +272,10 @@ unsigned long FlatModel::predict(const feature_node* x)
     // delete
     delete[] x_arr;
     delete[] o;
-    return max_i;
+    return max_i+1;
 }
 
-double predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+double FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
 {
     std::cerr << "[error] Not implemented yet!\n";
     return -1.0;
@@ -332,7 +343,7 @@ void FlatModel::load(const char* model_file_name)
                 if (tokens[0] == "struct")
                     prob->hstruct = strToHierarchy(tokens[1]);
                 else if(tokens[0] == "nr_feature")
-                    prob->n = std::stoi(tokens[1]);
+                    prob->n = static_cast<unsigned long>(std::stoi(tokens[1]));
                 else if(tokens[0] == "bias")
                     prob->bias = std::stod(tokens[1]);
                 else

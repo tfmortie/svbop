@@ -30,9 +30,9 @@
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    this->W = Matrix{new double*[prob.n], prob.n, 0};
+    this->W = Matrix{new double*[prob.d], prob.d, 0};
     // init D vector
-    this->D = Matrix{new double*[prob.n], prob.n, 0};
+    this->D = Matrix{new double*[prob.d], prob.d, 0};
     // set y attribute of this node (i.e., root)
     this->y = prob.hstruct[0];
     // now construct tree
@@ -46,9 +46,9 @@ HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
     if (y.size() > 1)
     {
         // first init W matrix
-        this->W = Matrix{new double*[prob.n], prob.n, 0};
+        this->W = Matrix{new double*[prob.d], prob.d, 0};
         // init D vector
-        this->D = Matrix{new double*[prob.n], prob.n, 0};
+        this->D = Matrix{new double*[prob.d], prob.d, 0};
     }
 } 
 
@@ -90,7 +90,7 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
     double t {0.0};
     for(unsigned long i=0; i<this->D.k; ++i)
     {
-        if(static_cast<const long&>(i) == ind)
+        if(static_cast<const unsigned long&>(i) == ind)
             t = 1.0;
         else
             t = 0.0;
@@ -149,7 +149,7 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
             if (tot_len_y_chn == this->y.size())
             {
                 // allocate weight and delta vectors 
-                for (unsigned long i=0; i<prob.n; ++i)
+                for (unsigned long i=0; i<prob.d; ++i)
                 {
                     this->W.value[i] = new double[this->chn.size()];
                     this->D.value[i] = new double[this->chn.size()]{0};
@@ -248,6 +248,12 @@ HierModel::HierModel(const problem* prob) : Model(prob)
     root = new HNode(*prob);
 }
 
+HierModel::HierModel(const char* model_file_name) : Model(model_file_name)
+{
+    std::cout << "Loading model from " << model_file_name << "...\n";
+    this->load(model_file_name);
+}
+
 HierModel::~HierModel()
 {
     std::queue<HNode*> visit_list; 
@@ -310,8 +316,8 @@ void HierModel::performCrossValidation(unsigned int k)
             // first clear weights 
             this->reset();
             // extract test fold indices
-            std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + iter*ns_fold;
-            std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + (iter+1)*ns_fold;
+            std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>(iter)*ns_fold);
+            std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>((iter+1))*ns_fold);
             std::vector<unsigned long> testfold_ind(i_start, i_stop);
             // now start fitting 
             this->fit(testfold_ind, 0);
@@ -382,7 +388,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     std::cout << "Fit model...\n";
     if (this->root != nullptr && this->prob != nullptr)
     {
-        int e_cntr {0};
+        unsigned int e_cntr {0};
         while (e_cntr < this->prob->ne)
         {
             double e_loss {0.0};
@@ -444,7 +450,7 @@ unsigned long HierModel::predict(const feature_node *x)
     if (root == nullptr)
     {
         std::cerr << "[warning] Model has not been constructed yet!\n";
-        return -1.0;
+        return 0;
     }
     else
     {
@@ -456,7 +462,7 @@ unsigned long HierModel::predict(const feature_node *x)
     }
 }
 
-double predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
+double HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> ind)
 {
     std::cerr << "[error] Not implemented yet!\n";
     return -1.0;
@@ -547,7 +553,7 @@ void HierModel::load(const char* model_file_name)
                 if (tokens[0] == "struct")
                     prob->hstruct = strToHierarchy(tokens[1]);
                 else if(tokens[0] == "nr_feature")
-                    prob->n = std::stoi(tokens[1]);
+                    prob->n = static_cast<unsigned long>(std::stol(tokens[1]));
                 else if(tokens[0] == "bias")
                     prob->bias = std::stod(tokens[1]);
                 else

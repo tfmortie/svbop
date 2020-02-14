@@ -44,7 +44,7 @@ class HierModel : Model
         
     public:
         HierModel(const problem* prob);
-        HierModel(const char* model_file_name) : Model(model_file_name) {};
+        HierModel(const char* model_file_name);
         ~HierModel();
 
         void printStruct();

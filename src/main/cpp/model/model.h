@@ -7,6 +7,7 @@
 #ifndef MODEL_U
 #define MODEL_U
 
+#include <iostream>
 #include <vector>
 
 /* type of model */
@@ -52,23 +53,20 @@ class Model
         
     public:
         Model(const problem* prob) : prob{prob} {};
-        Model(const char* model_file_name) : prob{nullptr}
-        {
-            std::cout << "Loading model from " << model_file_name << "...\n";
-            this->load(model_file_name);
-        };
+        Model(const char* model_file_name) : prob{nullptr} {};
+        virtual ~Model() {};
 
-        virtual void printStruct();
-        virtual void printInfo(const bool verbose = 0);
-        virtual void performCrossValidation(unsigned int k);
-        virtual void reset();
-        virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
-        virtual unsigned long predict(const feature_node* x);
-        virtual double predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {});
-        virtual unsigned long getNrClass();
-        virtual unsigned long getNrFeatures();
-        virtual void save(const char* model_file_name);
-        virtual void load(const char* model_file_name); /* TODO: include error handling! */
+        virtual void printStruct() = 0;
+        virtual void printInfo(const bool verbose = 0) = 0;
+        virtual void performCrossValidation(unsigned int k) = 0;
+        virtual void reset() = 0;
+        virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1) = 0;
+        virtual unsigned long predict(const feature_node* x) = 0;
+        virtual double predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {}) = 0;
+        virtual unsigned long getNrClass() = 0;
+        virtual unsigned long getNrFeatures() = 0;
+        virtual void save(const char* model_file_name) = 0;
+        virtual void load(const char* model_file_name) = 0; /* TODO: include error handling! */
 };
 
 #endif

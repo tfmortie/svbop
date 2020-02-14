@@ -10,6 +10,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include "model/model.h"
 
 /* main class (flat) softmax model */
 class FlatModel : Model
@@ -25,7 +26,7 @@ class FlatModel : Model
 
     public:
         FlatModel(const problem* prob);
-        FlatModel(const char* model_file_name) : Model(model_file_name) {};
+        FlatModel(const char* model_file_name);
         ~FlatModel();
 
         void printStruct();

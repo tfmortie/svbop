@@ -17,14 +17,14 @@ void getProblem(ParseResult &presult, problem &p)
 {
     // get number of observations and features (+ bias)
     p.n = getSizeData(presult.file_path);
-    p.d = presult.num_features + ((p.bias > -1) ? 1 : 0);
+    // set bias
+    p.bias = presult.bias;
+    p.d = presult.num_features + ((p.bias >= 0) ? static_cast<unsigned long>(1) : static_cast<unsigned long>(0));
     // add structure classification problem 
     p.hstruct = processHierarchy(presult.hierarchy_path);
     // get x (features) and y (labels)
     p.y = new unsigned long[p.n];
     p.X = new feature_node*[p.n];
-    // and bias
-    p.bias = presult.bias;
     processData(presult.file_path, p);
     // and number of epochs and learning rate 
     p.ne = presult.ne;
@@ -56,12 +56,12 @@ void processData(const std::string &file, problem &p)
             std::istringstream istr_stream {line};
             std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
             // we can now init our feature_node row
-            if (p.bias > -1)
+            if (p.bias >= 0.0)
                 p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size()+1)]; // +1 for bias and terminator
             else
                 p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size())]; 
             // assign class 
-            p.y[i] = std::stol(tokens[0]);
+            p.y[i] = static_cast<unsigned long>(std::stol(tokens[0]));
             for (unsigned int j=1; j<tokens.size(); ++j)
             {
                 try 
@@ -82,7 +82,7 @@ void processData(const std::string &file, problem &p)
             // add bias if needed
             if (p.bias > -1)
             {
-                p.X[i][tokens.size()-1].index = p.d;
+                p.X[i][tokens.size()-1].index = static_cast<long>(p.d);
                 p.X[i][tokens.size()-1].value = p.bias;
                 p.X[i][tokens.size()].index = -1;
                 p.X[i][tokens.size()].value = 0.0;
@@ -157,11 +157,11 @@ std::vector<unsigned long> arrToVec(const std::string &s)
     while (substr.find(DELIM) != std::string::npos)
     {
         auto delim_loc {substr.find(DELIM)};
-        ret_vec.push_back(std::stol(substr.substr(0, delim_loc)));
+        ret_vec.push_back(static_cast<unsigned long>(std::stol(substr.substr(0, delim_loc))));
         substr = substr.substr(delim_loc+1, substr.length()-delim_loc-DELIM.length());
     }
     // make sure to process the last bit of our string
-    ret_vec.push_back(std::stol(substr));
+    ret_vec.push_back(static_cast<unsigned long>(std::stol(substr)));
     return ret_vec;
 }
 

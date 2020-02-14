@@ -20,8 +20,8 @@ struct ParseResult {
     /* MODEL */
     ModelType model_type;
     double bias; 
-    int num_features;
-    int ne;
+    unsigned long num_features;
+    unsigned int ne;
     double lr;
 };
 

@@ -59,8 +59,8 @@ int main(int argc, char** argv)
             double n_cntr {0.0};
             for(unsigned long n=0; n<prob.n; ++n)
             {
-                double pred {model.predict(prob.X[n])};
-                double targ {prob.y[n]};
+                unsigned long pred {model.predict(prob.X[n])};
+                unsigned long targ {prob.y[n]};
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
@@ -79,8 +79,8 @@ int main(int argc, char** argv)
             double n_cntr {0.0};
             for(unsigned long n=0; n<prob.n; ++n)
             {
-                double pred {model.predict(prob.X[n])};
-                double targ {prob.y[n]};
+                unsigned long pred {model.predict(prob.X[n])};
+                unsigned long targ {prob.y[n]};
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }

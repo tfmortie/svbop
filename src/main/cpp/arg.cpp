@@ -95,7 +95,7 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             ++i;
         }
         // check for -h, --hierarchy
-        else if (static_cast<std::string>(args[i]).compare("-h") == 0 || static_cast<std::string>(args[i]).compare("--hierarchy") == 0)
+        else if (static_cast<std::string>(args[i]).compare("-s") == 0 || static_cast<std::string>(args[i]).compare("--struct") == 0)
         {
             presult.hierarchy_path = args[i+1];
             ++i;
@@ -109,13 +109,13 @@ void parseArgs(int argc, char** args, ParseResult& presult)
         // check for -d, --dim
         else if (static_cast<std::string>(args[i]).compare("-d") == 0 || static_cast<std::string>(args[i]).compare("--dim") == 0)
         {
-            presult.num_features = std::stoi(args[i+1]);
+            presult.num_features = static_cast<unsigned long>(std::stol(args[i+1]));
             ++i;
         }
         // check for -ne, --nepochs
         else if (static_cast<std::string>(args[i]).compare("-ne") == 0 || static_cast<std::string>(args[i]).compare("--nepochs") == 0)
         {
-            presult.ne = std::stoi(args[i+1]);
+            presult.ne = static_cast<unsigned int>(std::stoi(args[i+1]));
             ++i;
         }
         // check for -lr, --learnrate
