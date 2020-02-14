@@ -113,10 +113,11 @@ double HNode::predict(const feature_node *x, const unsigned long ind)
         x: feature node
         ind: index for branch to be updated
         lr: learning rate for SGD
+        fast: whether to apply fast (but less accurate) updates or not
     Return: 
         probability for branch with index ind (needed for loss)
 */
-double HNode::update(const feature_node *x, const unsigned long ind, const double lr)
+double HNode::update(const feature_node *x, const unsigned long ind, const double lr, const bool fast)
 {
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
@@ -125,35 +126,32 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
     // apply softmax
     softmax(o, this->W.k); 
     // set delta's 
-    double t {0.0};
-    for(unsigned long i=0; i<this->D.k; ++i)
+    if (fast)
     {
-        if(static_cast<const unsigned long&>(i) == ind)
-            t = 1.0;
-        else
-            t = 0.0;
-
-        dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
+        dvscalm((o[ind]-1), x, this->D.value, this->D.k, ind);
+        // backward step
+        dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, ind);
     }
-    // backward step
-    this->backward(x, lr);
+    else
+    {
+        double t {0.0};
+        for(unsigned long i=0; i<this->D.k; ++i)
+        {
+            if(static_cast<const unsigned long&>(i) == ind)
+                t = 1.0;
+            else
+                t = 0.0;
+
+            dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
+        }
+        // backward step
+        for (unsigned long i=0; i<this->W.k; ++i)
+            dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
+    }    
     double p {o[ind]};
     // delete
     delete[] o;
     return p;
-}
-
-/*
-    Backprop.
-
-    Arguments:
-        x: feature node
-        lr: learning rate for SGD
-*/
-void HNode::backward(const feature_node *x, const double lr)
-{
-    for (unsigned long i=0; i<this->W.k; ++i)
-        dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
 }
 
 /* reinitialize W */

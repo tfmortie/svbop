@@ -27,8 +27,7 @@ class HNode
         std::vector<HNode*> chn;
         unsigned long predict(const feature_node* x); /* predict child/branch */
         double predict(const feature_node* x, const unsigned long ind); /* get branch probability of child node with index ind */
-        double update(const feature_node* x, const unsigned long ind, const double lr); /* forward pass & call backward pass */
-        void backward(const feature_node* x, const double lr); /* backward pass */
+        double update(const feature_node* x, const unsigned long ind, const double lr, const bool fast = 0); /* forward & backward pass */
         void reset();
         void addChildNode(std::vector<unsigned long> y, const problem& p);     
         std::string getWeightVector();
