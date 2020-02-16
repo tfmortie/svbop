@@ -39,7 +39,6 @@ FlatModel::FlatModel(const problem* prob) : Model(prob)
 /* constructor (predict mode) */
 FlatModel::FlatModel(const char* model_file_name) : Model(model_file_name)
 {
-    std::cout << "Loading model from " << model_file_name << "...\n";
     this->load(model_file_name);
 }
 
@@ -198,8 +197,6 @@ void FlatModel::performCrossValidation(unsigned int k)
         while (iter < k)
         {
             std::cout << "FOLD " << iter+1 << '\n';
-            // first clear weights 
-            this->reset();
             // extract test fold indices
             std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>(iter)*ns_fold);
             std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>((iter+1))*ns_fold);
@@ -261,6 +258,7 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             // run over each instance 
             for (unsigned long n = 0; n<this->prob->n; ++n)
             {
+                std::cout << "Fit on instance " << n << " during epoch " << e_cntr << " ...\n";
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     feature_node* x {this->prob->X[n]};
@@ -382,6 +380,7 @@ void FlatModel::save(const char* model_file_name)
 /* load model from file */
 void FlatModel::load(const char* model_file_name)
 {
+    std::cout << "Loading model from " << model_file_name << "...\n";
     problem* prob = new problem{}; 
     //1. create prob instance, based on information in file: h_struct, nr_feature, bias
     std::ifstream in {model_file_name};

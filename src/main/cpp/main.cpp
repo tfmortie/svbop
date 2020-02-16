@@ -30,7 +30,12 @@ int main(int argc, char** argv)
             model.printInfo(0); 
             model.performCrossValidation(2);
             // train model on complete dataset
+            time_t start,end;
+            time(&start);
             model.fit();
+            time(&end);
+            double dt = difftime(end,start);
+            std::cout << "Exectution time: " << dt << "\n";
             model.save(parser_result.model_path.c_str());
         }
         else
@@ -39,7 +44,12 @@ int main(int argc, char** argv)
             model.printInfo(0); 
             model.performCrossValidation(2);
             // train model on complete dataset
+            time_t start,end;
+            time(&start);
             model.fit();
+            time(&end);
+            double dt = difftime(end,start);
+            std::cout << "Exectution time: " << dt << "\n";
             model.save(parser_result.model_path.c_str());
         }
     }

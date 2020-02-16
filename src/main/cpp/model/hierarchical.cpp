@@ -42,7 +42,7 @@ HNode::HNode(const problem &prob)
 /* constructor for all nodes except root */
 HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
 {
-    // only init D if internal node!
+    // only init D if internal node! (TODO: optimize for internal nodes with one (internal) node as child)
     if (y.size() > 1)
     {
         // first init W matrix
@@ -69,15 +69,19 @@ HNode::~HNode()
 */
 unsigned long HNode::predict(const feature_node *x)
 {
-    // forward step
-    double* o {new double[this->W.k]()}; // array of exp
-    // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
-    // get index max
-    double* max_o {std::max_element(o, o+this->W.k)}; 
-    unsigned long max_i {static_cast<unsigned long>(max_o-o)};
-    // delete
-    delete[] o;
+    unsigned long max_i {0};
+    if (this->chn.size() > 1)
+    {
+        // forward step
+        double* o {new double[this->W.k]()}; // array of exp
+        // Wtx
+        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        // get index max
+        double* max_o {std::max_element(o, o+this->W.k)}; 
+        max_i = static_cast<unsigned long>(max_o-o);
+        // delete
+        delete[] o;
+    }
     return max_i;
 }
 
@@ -92,17 +96,20 @@ unsigned long HNode::predict(const feature_node *x)
 */
 double HNode::predict(const feature_node *x, const unsigned long ind)
 {
-    double prob {0.0};
-    // forward step
-    double* o {new double[this->W.k]()}; // array of exp
-    // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
-    // apply softmax
-    softmax(o, this->W.k);
-    // return prob
-    prob = o[ind];
-    // delete
-    delete[] o;
+    double prob {1.0};
+    if (this->chn.size() > 1)
+    {
+        // forward step
+        double* o {new double[this->W.k]()}; // array of exp
+        // Wtx
+        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        // apply softmax
+        softmax(o, this->W.k);
+        // return prob
+        prob = o[ind];
+        // delete
+        delete[] o;
+    }
     return prob;
 }
 
@@ -119,46 +126,51 @@ double HNode::predict(const feature_node *x, const unsigned long ind)
 */
 double HNode::update(const feature_node *x, const unsigned long ind, const double lr, const bool fast)
 {
-    // forward step
-    double* o {new double[this->W.k]()}; // array of exp
-    // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
-    // apply softmax
-    softmax(o, this->W.k); 
-    // set delta's 
-    if (fast)
+    double prob {1.0};
+    if (this->chn.size() > 1)
     {
-        dvscalm((o[ind]-1), x, this->D.value, this->D.k, ind);
-        // backward step
-        dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, ind);
-    }
-    else
-    {
-        double t {0.0};
-        for(unsigned long i=0; i<this->D.k; ++i)
+        // forward step
+        double* o {new double[this->W.k]()}; // array of exp
+        // Wtx
+        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        // apply softmax
+        softmax(o, this->W.k); 
+        // set delta's 
+        if (fast)
         {
-            if(static_cast<const unsigned long&>(i) == ind)
-                t = 1.0;
-            else
-                t = 0.0;
-
-            dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
+            dvscalm((o[ind]-1), x, this->D.value, this->D.k, ind);
+            // backward step
+            dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, ind);
         }
-        // backward step
-        for (unsigned long i=0; i<this->W.k; ++i)
-            dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
-    }    
-    double p {o[ind]};
-    // delete
-    delete[] o;
-    return p;
+        else
+        {
+            double t {0.0};
+            for(unsigned long i=0; i<this->D.k; ++i)
+            {
+                if(static_cast<const unsigned long&>(i) == ind)
+                    t = 1.0;
+                else
+                    t = 0.0;
+
+                dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
+            }
+            // backward step
+            for (unsigned long i=0; i<this->W.k; ++i)
+                dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
+        }    
+        prob = o[ind];
+        // delete
+        delete[] o;
+    }
+    return prob;
 }
 
 /* reinitialize W */
 void HNode::reset()
 {
     // reinitialize W
-    initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+    if (this->chn.size() > 1)
+        initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
 
 /*
@@ -201,11 +213,9 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
                 // allocate weight and delta vectors 
                 for (unsigned long i=0; i<prob.d; ++i)
                 {
-                    this->W.value[i] = new double[this->chn.size()];
+                    this->W.value[i] = new double[this->chn.size()]{0};
                     this->D.value[i] = new double[this->chn.size()]{0};
                 }
-                // init W
-                initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
             }
             // set k size attribute
             this->W.k = this->chn.size();
@@ -223,7 +233,7 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
 /* deallocate memory (W and D) for current node */
 void HNode::free()
 {
-    if (this->y.size() > 1)
+    if (this->chn.size() > 1)
     { 
         for (unsigned long i = 0; i < this->W.d; ++i)
         {
@@ -238,17 +248,20 @@ void HNode::free()
 /* returns weights for current node in string representation (row-major order, space separated) */
 std::string HNode::getWeightVector()
 {
-    std::string ret_arr;
-    // process all elements in row-major order
-    for (unsigned long i=0; i<this->W.d; ++i)
+    std::string ret_arr {""};
+    if (this->chn.size() > 1)
     {
-        for (unsigned long j=0; j<this->W.k; ++j)
+        // process all elements in row-major order
+        for (unsigned long i=0; i<this->W.d; ++i)
         {
-            std::stringstream str_stream;
-            str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
-            ret_arr += str_stream.str();
-            if ((i!=this->W.d-1) || (j!=this->W.k-1))
-                ret_arr += ' ';
+            for (unsigned long j=0; j<this->W.k; ++j)
+            {
+                std::stringstream str_stream;
+                str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
+                ret_arr += str_stream.str();
+                if ((i!=this->W.d-1) || (j!=this->W.k-1))
+                    ret_arr += ' ';
+            }
         }
     }
     return ret_arr;
@@ -257,15 +270,18 @@ std::string HNode::getWeightVector()
 /* set weights in string representation (row-major order, space separated) */ 
 void HNode::setWeightVector(std::string w_str)
 {
-    // convert string to input stream
-    std::istringstream istr_stream {w_str};
-    // weights are separated by ' ', hence, split accordingly
-    std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
-    // run over weights in row-major order and save to W
-    for (unsigned long i=0; i<this->W.d; ++i)
+    if (this->chn.size() > 1)
     {
-        for (unsigned long j=0; j<this->W.k; ++j)
-            this->W.value[i][j] = std::stod(tokens[(i*this->W.k)+j]);
+        // convert string to input stream
+        std::istringstream istr_stream {w_str};
+        // weights are separated by ' ', hence, split accordingly
+        std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
+        // run over weights in row-major order and save to W
+        for (unsigned long i=0; i<this->W.d; ++i)
+        {
+            for (unsigned long j=0; j<this->W.k; ++j)
+                this->W.value[i][j] = std::stod(tokens[(i*this->W.k)+j]);
+        }
     }
 }
 
@@ -457,6 +473,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             // run over each instance 
             for (unsigned long n = 0; n<this->prob->n; ++n)
             {
+                //std::cout << "Fit on instance " << n << " during epoch " << e_cntr << " ...\n";
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     double i_loss {0.0};
@@ -586,7 +603,7 @@ unsigned long HierModel::getNrClass()
     if (this->prob != nullptr)
         return this->prob->hstruct[0].size();
     else
-        return this->root->W.k;
+        return this->root->y.size();
 }
 
 /* get number of features (bias included) */ 
