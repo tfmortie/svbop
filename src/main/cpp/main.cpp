@@ -2,7 +2,6 @@
     Author: Thomas Mortier 2019-2020
 
     Main file
-    TESTT
 */
 
 #include <iostream>
