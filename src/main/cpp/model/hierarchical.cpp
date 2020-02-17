@@ -3,8 +3,7 @@
 
     Implementation of model based on h-softmax
 
-    TODO: implement predict_proba
-    TODO: check whether backward step can be optimized (ie, no updates needed for all W's, for a given node)
+    TODO: mini-batch training
 */
 
 #include "model/hierarchical.h"
@@ -29,9 +28,9 @@
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    this->W = Matrix{new double*[prob.d], prob.d, 0};
+    this->W = Matrix{new double[prob.d], prob.d, 0};
     // init D vector
-    this->D = Matrix{new double*[prob.d], prob.d, 0};
+    this->D = Matrix{new double[prob.d], prob.d, 0};
     // set y attribute of this node (i.e., root)
     this->y = prob.hstruct[0];
     // now construct tree
@@ -46,9 +45,9 @@ HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
     if (y.size() > 1)
     {
         // first init W matrix
-        this->W = Matrix{new double*[prob.d], prob.d, 0};
+        this->W = Matrix{new double[prob.d], prob.d, 0};
         // init D vector
-        this->D = Matrix{new double*[prob.d], prob.d, 0};
+        this->D = Matrix{new double[prob.d], prob.d, 0};
     }
 } 
 
@@ -75,7 +74,7 @@ unsigned long HNode::predict(const feature_node *x)
         // forward step
         double* o {new double[this->W.k]()}; // array of exp
         // Wtx
-        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
         // get index max
         double* max_o {std::max_element(o, o+this->W.k)}; 
         max_i = static_cast<unsigned long>(max_o-o);
@@ -102,7 +101,7 @@ double HNode::predict(const feature_node *x, const unsigned long ind)
         // forward step
         double* o {new double[this->W.k]()}; // array of exp
         // Wtx
-        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
         // apply softmax
         softmax(o, this->W.k);
         // return prob
@@ -132,7 +131,7 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
         // forward step
         double* o {new double[this->W.k]()}; // array of exp
         // Wtx
-        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
         // apply softmax
         softmax(o, this->W.k); 
         // set delta's 
@@ -140,7 +139,7 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
         {
             dvscalm((o[ind]-1), x, this->D.value, this->D.k, ind);
             // backward step
-            dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, ind);
+            dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, ind);
         }
         else
         {
@@ -156,7 +155,7 @@ double HNode::update(const feature_node *x, const unsigned long ind, const doubl
             }
             // backward step
             for (unsigned long i=0; i<this->W.k; ++i)
-                dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
+                dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, i);
         }    
         prob = o[ind];
         // delete
@@ -211,11 +210,10 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
             if (tot_len_y_chn == this->y.size())
             {
                 // allocate weight and delta vectors 
-                for (unsigned long i=0; i<prob.d; ++i)
-                {
-                    this->W.value[i] = new double[this->chn.size()]{0};
-                    this->D.value[i] = new double[this->chn.size()]{0};
-                }
+                delete[] this->W.value;
+                delete[] this->D.value;
+                this->W.value = new double[this->W.d*this->chn.size()]{0};
+                this->D.value = new double[this->D.d*this->chn.size()]{0};
             }
             // set k size attribute
             this->W.k = this->chn.size();
@@ -235,11 +233,6 @@ void HNode::free()
 {
     if (this->chn.size() > 1)
     { 
-        for (unsigned long i = 0; i < this->W.d; ++i)
-        {
-            delete[] this->W.value[i];
-            delete[] this->D.value[i];
-        }
         delete[] this->W.value;
         delete[] this->D.value;
     }
@@ -251,17 +244,13 @@ std::string HNode::getWeightVector()
     std::string ret_arr {""};
     if (this->chn.size() > 1)
     {
-        // process all elements in row-major order
-        for (unsigned long i=0; i<this->W.d; ++i)
+        for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
         {
-            for (unsigned long j=0; j<this->W.k; ++j)
-            {
-                std::stringstream str_stream;
-                str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
-                ret_arr += str_stream.str();
-                if ((i!=this->W.d-1) || (j!=this->W.k-1))
-                    ret_arr += ' ';
-            }
+            std::stringstream str_stream;
+            str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i]);
+            ret_arr += str_stream.str();
+            if (i!=(this->W.d*this->W.k)-1)
+                ret_arr += ' ';
         }
     }
     return ret_arr;
@@ -276,12 +265,8 @@ void HNode::setWeightVector(std::string w_str)
         std::istringstream istr_stream {w_str};
         // weights are separated by ' ', hence, split accordingly
         std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
-        // run over weights in row-major order and save to W
-        for (unsigned long i=0; i<this->W.d; ++i)
-        {
-            for (unsigned long j=0; j<this->W.k; ++j)
-                this->W.value[i][j] = std::stod(tokens[(i*this->W.k)+j]);
-        }
+        for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
+            this->W.value[i] = std::stod(tokens[i]);
     }
 }
 
@@ -473,7 +458,6 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             // run over each instance 
             for (unsigned long n = 0; n<this->prob->n; ++n)
             {
-                //std::cout << "Fit on instance " << n << " during epoch " << e_cntr << " ...\n";
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     double i_loss {0.0};
@@ -582,7 +566,6 @@ std::vector<double> HierModel::predict_proba(const feature_node* x, const std::v
             }
             if (ind != -1)
             {
-                // (i_p<=EPS ? EPS : i_p) in case of underflow! (TODO: remove)
                 prob *= visit_node->predict(x, static_cast<unsigned long>(ind));
                 visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
             }
