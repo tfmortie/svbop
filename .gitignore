@@ -7,3 +7,6 @@ data/
 src/main/cpp/data/
 src/main/cpp/main
 *.sh
+.ipynb_checkpoints/
+model/.ipynb_checkpoints/
+svp
