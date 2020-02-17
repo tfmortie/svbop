@@ -28,7 +28,7 @@ int main(int argc, char** argv)
         {
             FlatModel model = FlatModel(&prob);
             model.printInfo(0); 
-            model.performCrossValidation(2);
+            //model.performCrossValidation(2);
             // train model on complete dataset
             time_t start,end;
             time(&start);
