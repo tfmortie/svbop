@@ -27,13 +27,8 @@
 FlatModel::FlatModel(const problem* prob) : Model(prob)
 {
     // create W & D matrix
-    this->W = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
-    this->D = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
-    for (unsigned long i=0; i<prob->d; ++i)
-    {
-        this->W.value[i] = new double[prob->hstruct[0].size()];
-        this->D.value[i] = new double[prob->hstruct[0].size()]{0};
-    }
+    this->W = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
+    this->D = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
     // initialize W matrix
     initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
 }
@@ -66,7 +61,7 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
     // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+    dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
     // apply softmax
     softmax(o, this->W.k);
     // set delta's 
@@ -79,7 +74,7 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
             t = 0.0;
 
         dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
-    } 
+    }  
     // backward step
     this->backward(x, lr);
     double p {o[y-1]};
@@ -98,7 +93,7 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
 void FlatModel::backward(const feature_node* x, const double lr)
 {
     for (unsigned long i=0; i<this->W.k; ++i)
-        dsubmv(lr, this->W.value, const_cast<const double**>(this->D.value), this->W.d, this->W.k, i);
+        dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, i);
 }
 
 /* returns weights in string representation (row-major order, space separated) */
@@ -106,16 +101,13 @@ std::string FlatModel::getWeightVector()
 {
     std::string ret_arr;
     // process all elements in row-major order
-    for (unsigned long i=0; i<this->W.d; ++i)
+    for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
     {
-        for (unsigned long j=0; j<this->W.k; ++j)
-        {
-            std::stringstream str_stream;
-            str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i][j]);
-            ret_arr += str_stream.str();
-            if ((i!=this->W.d-1) || (j!=this->W.k-1))
-                ret_arr += ' ';
-        }
+        std::stringstream str_stream;
+        str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i]);
+        ret_arr += str_stream.str();
+        if (i!=(this->W.d*this->W.k)-1)
+            ret_arr += ' ';
     }
     return ret_arr;
 }
@@ -128,21 +120,13 @@ void FlatModel::setWeightVector(std::string w_str)
     // weights are separated by ' ', hence, split accordingly
     std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
     // run over weights in row-major order and save to W
-    for (unsigned long i=0; i<this->W.d; ++i)
-    {
-        for (unsigned long j=0; j<this->W.k; ++j)
-            this->W.value[i][j] = std::stod(tokens[(i*this->W.k)+j]);
-    }
+    for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
+        this->W.value[i] = std::stod(tokens[i]);
 }
 
 /* deallocate memory (W and D) for current node */
 void FlatModel::free()
 {
-    for (unsigned long i = 0; i < this->W.d; ++i)
-    {
-        delete[] this->W.value[i];
-        delete[] this->D.value[i];
-    }
     delete[] this->W.value;
     delete[] this->D.value;
 }
@@ -264,9 +248,9 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                 {
                     feature_node* x {this->prob->X[n]};
                     unsigned long y {this->prob->y[n]}; // our class 
-                    std::cout << "Update instance " << n << "...\n";
+                    //std::cout << "Update instance " << n << "...\n";
                     double i_p {this->update(x, y, this->prob->lr)};
-                    std::cout << "Done!\n";
+                    //std::cout << "Done!\n";
                     double i_loss {std::log2((i_p<=EPS ? EPS : i_p))};
                     e_loss += -i_loss;
                     n_cntr += 1;
@@ -296,7 +280,7 @@ unsigned long FlatModel::predict(const feature_node* x)
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
     // Wtx
-    dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+    dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
     // get index max
     double* max_o {std::max_element(o, o+this->W.k)}; 
     unsigned long max_i {static_cast<unsigned long>(max_o-o)};
@@ -325,7 +309,7 @@ std::vector<double> FlatModel::predict_proba(const feature_node* x, const std::v
         // forward step
         double* o {new double[this->W.k]()}; // array of exp
         // Wtx
-        dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
+        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
         // apply softmax
         softmax(o, this->W.k);
         // get prob
@@ -413,13 +397,8 @@ void FlatModel::load(const char* model_file_name)
             else
             {
                 // first create W & D matrix
-                this->W = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
-                this->D = Matrix{new double*[prob->d], prob->d, prob->hstruct[0].size()};
-                for (unsigned long i=0; i<prob->d; ++i)
-                {
-                    this->W.value[i] = new double[prob->hstruct[0].size()]{0};
-                    this->D.value[i] = new double[prob->hstruct[0].size()]{0};
-                }
+                this->W = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
+                this->D = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
                 this->setWeightVector(line);         
             } 
         }

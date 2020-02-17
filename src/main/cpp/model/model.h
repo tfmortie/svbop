@@ -42,7 +42,7 @@ struct problem
 /* matrix container for weight and delta matrices */
 struct Matrix
 {
-    double** value; /* should be D x K */
+    double* value; /* should be D x K */
     unsigned long d; /* D */
     unsigned long k; /* K */
 };

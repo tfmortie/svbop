@@ -9,4 +9,4 @@ src/main/cpp/main
 *.sh
 .ipynb_checkpoints/
 model/.ipynb_checkpoints/
-svp
+src/main/cpp/svp
