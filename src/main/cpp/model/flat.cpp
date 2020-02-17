@@ -3,9 +3,8 @@
 
     Implementation of model with softmax
 
-    TODO: comments
-    TODO: optimize (allow sparse features (feature_node))!
-    TODO: implement predict_proba
+    TODO: decrease construction time (don't work with struct but with k flag (nr of classes))
+    TODO: mini-batch training
 */
 
 #include "model/model.h"
@@ -17,6 +16,8 @@
 #include <random>
 #include <fstream>
 #include <queue>
+#include <ctime> 
+#include <algorithm> // TODO: remove
 
 
 /* CONSTRUCTOR AND DESTRUCTOR */
@@ -66,7 +67,7 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
     // Wtx
     dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
     // apply softmax
-    softmax(o, this->W.k); 
+    softmax(o, this->W.k);
     // set delta's 
     double t {0.0};
     for(unsigned long i=0; i<this->D.k; ++i)
@@ -77,7 +78,7 @@ double FlatModel::update(const feature_node* x, const unsigned long y, const dou
             t = 0.0;
 
         dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
-    }
+    } 
     // backward step
     this->backward(x, lr);
     double p {o[y-1]};
@@ -258,12 +259,13 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             // run over each instance 
             for (unsigned long n = 0; n<this->prob->n; ++n)
             {
-                std::cout << "Fit on instance " << n << " during epoch " << e_cntr << " ...\n";
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     feature_node* x {this->prob->X[n]};
                     unsigned long y {this->prob->y[n]}; // our class 
+                    std::cout << "Update instance " << n << "...\n";
                     double i_p {this->update(x, y, this->prob->lr)};
+                    std::cout << "Done!\n";
                     double i_loss {std::log2((i_p<=EPS ? EPS : i_p))};
                     e_loss += -i_loss;
                     n_cntr += 1;
@@ -293,7 +295,6 @@ unsigned long FlatModel::predict(const feature_node* x)
     // forward step
     double* o {new double[this->W.k]()}; // array of exp
     // Wtx
-    //dgemv(1.0, const_cast<const double**>(this->W.value), x_arr, o, this->W.d, this->W.k);
     dgemv(1.0, const_cast<const double**>(this->W.value), x, o, this->W.k);
     // get index max
     double* max_o {std::max_element(o, o+this->W.k)}; 

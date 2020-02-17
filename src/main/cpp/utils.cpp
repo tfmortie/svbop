@@ -79,19 +79,19 @@ void dsubmv(const double alpha, double** W, const double** D, const unsigned lon
 }
 
 /* x = exp(x)/sum(exp(x)) */
-void softmax(double* x, const unsigned long d)
+void softmax(double* x, const unsigned long k)
 {
     // first calculate max 
-    double x_max {*std::max_element(x, x+d)};
+    double x_max {*std::max_element(x, x+k)};
     // exp and calculate Z 
     double Z {0.0};
-    for (unsigned long i=0; i<d; ++i)
+    for (unsigned long i=0; i<k; ++i)
     {
         Z += std::exp(x[i]-x_max);
         x[i] = std::exp(x[i]-x_max);
     }
     // divide x by denum
-    dvscal(1/Z, x, d);
+    dvscal(1/Z, x, k);
 }
 
 /* function which init. W with values from uniform distribution U(min, max) */
