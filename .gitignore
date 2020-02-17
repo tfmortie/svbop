@@ -7,3 +7,4 @@ data/
 src/main/cpp/data/
 src/main/cpp/main
 *.sh
+src/main/cpp/svp

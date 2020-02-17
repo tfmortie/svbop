@@ -17,7 +17,8 @@
 #include <fstream>
 #include <queue>
 #include <ctime> 
-#include <algorithm> // TODO: remove
+#include <iterator>
+#include <algorithm>
 
 
 /* CONSTRUCTOR AND DESTRUCTOR */

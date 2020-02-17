@@ -10,7 +10,7 @@
 #include "arg.h"
 #include "model/model.h"
 
-inline const std::string ARRDELIM {"],["}; /* seperator for extracting hierarchy */
+const std::string ARRDELIM {"],["}; /* seperator for extracting hierarchy */
 
 void getProblem(ParseResult &presult, problem &p);
 unsigned long getSizeData(const std::string &file);
