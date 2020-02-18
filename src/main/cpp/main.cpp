@@ -3,7 +3,7 @@
 
     Main file
 
-    TODO: use Eigen for linalg operations
+    TODO: add support for mini-batch training
 */
 
 #include <iostream>

@@ -2,8 +2,6 @@
     Author: Thomas Mortier 2019-2020
 
     Implementation of model based on h-softmax
-
-    TODO: mini-batch training
 */
 
 #include <string>
