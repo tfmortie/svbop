@@ -2,15 +2,8 @@
     Author: Thomas Mortier 2019-2020
 
     Implementation of model with softmax
-
-    TODO: decrease construction time (don't work with struct but with k flag (nr of classes))
-    TODO: mini-batch training
 */
 
-#include "model/model.h"
-#include "model/flat.h"
-#include "data.h"
-#include "utils.h"
 #include <sstream>
 #include <iomanip>
 #include <random>
@@ -19,7 +12,12 @@
 #include <ctime> 
 #include <iterator>
 #include <algorithm>
-
+#include "model/model.h"
+#include "model/flat.h"
+#include "data.h"
+#include "utils.h"
+#include "Eigen/Dense"
+#include "Eigen/SparseCore"
 
 /* CONSTRUCTOR AND DESTRUCTOR */
 
@@ -27,10 +25,10 @@
 FlatModel::FlatModel(const problem* prob) : Model(prob)
 {
     // create W & D matrix
-    this->W = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
-    this->D = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
+    this->W = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
+    this->D = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
     // initialize W matrix
-    initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+    inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /* constructor (predict mode) */
@@ -39,61 +37,29 @@ FlatModel::FlatModel(const char* model_file_name) : Model(model_file_name)
     this->load(model_file_name);
 }
 
-FlatModel::~FlatModel()
-{
-    this->free();
-}
-
 /* PRIVATE */
 
 /*
     Forward pass and backprop call.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
         y: class for which to calculate the probability (needed for loss)
         lr: learning rate for SGD
     Return: 
         probability for class y (needed for loss)
 */
-double FlatModel::update(const feature_node* x, const unsigned long y, const double lr)
+double FlatModel::update(const Eigen::SparseVector<double>& x, const unsigned long y, const double lr)
 {
-    // forward step
-    double* o {new double[this->W.k]()}; // array of exp
-    // Wtx
-    dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
+    // forward step (Wtx)
+    Eigen::VectorXd o = this->W.transpose() * x;
     // apply softmax
-    softmax(o, this->W.k);
+    softmax(o);
     // set delta's 
-    double t {0.0};
-    for(unsigned long i=0; i<this->D.k; ++i)
-    {
-        if (i+1 == y)
-            t = 1.0;
-        else
-            t = 0.0;
-
-        dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
-    }  
-    // backward step
-    this->backward(x, lr);
-    double p {o[y-1]};
-    // delete
-    delete[] o;
-    return p;
-}
-
-/*
-    Backprop.
-
-    Arguments:
-        x: feature node
-        lr: learning rate for SGD
-*/
-void FlatModel::backward(const feature_node* x, const double lr)
-{
-    for (unsigned long i=0; i<this->W.k; ++i)
-        dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, i);
+    dvscalm(D, o, y-1, x);
+    // and backpropagate
+    this->W = this->W - lr*this->D;
+    return o[y-1];
 }
 
 /* returns weights in string representation (row-major order, space separated) */
@@ -101,13 +67,16 @@ std::string FlatModel::getWeightVector()
 {
     std::string ret_arr;
     // process all elements in row-major order
-    for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
+    for (unsigned long i=0; i<this->W.rows(); ++i)
     {
-        std::stringstream str_stream;
-        str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i]);
-        ret_arr += str_stream.str();
-        if (i!=(this->W.d*this->W.k)-1)
-            ret_arr += ' ';
+        for (unsigned long j=0; j<this->W.cols(); ++j)
+        {
+            std::stringstream str_stream;
+            str_stream << std::to_string(this->W(i,j));
+            ret_arr += str_stream.str();
+            if (i!=this->W.rows()-1 || j!=this->W.cols()-1)
+                ret_arr += ' ';
+        }
     }
     return ret_arr;
 }
@@ -120,15 +89,11 @@ void FlatModel::setWeightVector(std::string w_str)
     // weights are separated by ' ', hence, split accordingly
     std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
     // run over weights in row-major order and save to W
-    for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
-        this->W.value[i] = std::stod(tokens[i]);
-}
-
-/* deallocate memory (W and D) for current node */
-void FlatModel::free()
-{
-    delete[] this->W.value;
-    delete[] this->D.value;
+    for (unsigned long i=0; i<this->W.rows(); ++i)
+    {
+        for (unsigned long j=0; j<this->W.cols(); ++j)
+            this->W(i,j) = std::stod(tokens[(i*this->W.cols())+j]);
+    }
 }
 
 /* PUBLIC */ 
@@ -139,9 +104,9 @@ void FlatModel::printStruct()
     if (this->prob == nullptr)
     {
         std::cout << "[";
-        for (unsigned long i=0; i<this->W.k-1; ++i)
+        for (unsigned long i=0; i<this->W.cols()-1; ++i)
             std::cout << i << ',';
-        std::cout << this->W.k << "]\n";
+        std::cout << this->W.cols() << "]\n";
     }
     else
         std::cout << vecToArr(this->prob->hstruct[0]) << '\n';
@@ -153,8 +118,8 @@ void FlatModel::printInfo(const bool verbose)
     std::cout << "---------------------------------------------------\n";
     std::cout << "[info] Flat model: \n";
     std::cout << "---------------------------------------------------\n";
-    std::cout << "  * Number of features              = " << this->W.d << '\n';
-    std::cout << "  * Number of classes               = " << this->W.k << '\n';   
+    std::cout << "  * Number of features              = " << this->W.rows() << '\n';
+    std::cout << "  * Number of classes               = " << this->W.cols() << '\n';   
     if (verbose)
     {
         std::cout << "  * Structure =\n";
@@ -227,7 +192,7 @@ void FlatModel::performCrossValidation(unsigned int k)
 void FlatModel::reset()
 {
     // reinitialize W
-    initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+    inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /* fit on data (in problem instance), while ignoring instances with ind in ign_index */
@@ -246,7 +211,7 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             {
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
-                    feature_node* x {this->prob->X[n]};
+                    Eigen::SparseVector<double> x {this->prob->X[n]};
                     unsigned long y {this->prob->y[n]}; // our class 
                     std::cout << "Update instance " << n << "...\n";
                     double i_p {this->update(x, y, this->prob->lr)};
@@ -271,21 +236,18 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     Return class with highest probability mass.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
     Return: 
         class
 */
-unsigned long FlatModel::predict(const feature_node* x)
+unsigned long FlatModel::predict(const Eigen::SparseVector<double>& x)
 {
-    // forward step
-    double* o {new double[this->W.k]()}; // array of exp
-    // Wtx
-    dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
-    // get index max
-    double* max_o {std::max_element(o, o+this->W.k)}; 
-    unsigned long max_i {static_cast<unsigned long>(max_o-o)};
-    // delete
-    delete[] o;
+    // forward step (Wtx)
+    Eigen::VectorXd o = this->W.transpose() * x;
+    // apply softmax
+    softmax(o);
+    Eigen::VectorXd::Index max_i;
+    o.maxCoeff(&max_i);
     return max_i+1;
 }
 
@@ -293,30 +255,23 @@ unsigned long FlatModel::predict(const feature_node* x)
     Calculate probability masses for one or more classes.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
         yv: vector of classes for which to calculate probability mass
         p: vector of probabilities
     Return: 
         vector of probabilities
 */
-std::vector<double> FlatModel::predict_proba(const feature_node* x, const std::vector<unsigned long> yv)
+std::vector<double> FlatModel::predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> yv)
 {
     std::vector<double> probs; 
     // run over all labels for which we need to calculate probs
     for (unsigned long y : yv)
     {
-        double prob {0.0};
-        // forward step
-        double* o {new double[this->W.k]()}; // array of exp
-        // Wtx
-        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
+        // forward step (Wtx)
+        Eigen::VectorXd o = this->W.transpose() * x;
         // apply softmax
-        softmax(o, this->W.k);
-        // get prob
-        prob = o[y-1];
-        // delete
-        delete[] o;
-        probs.push_back(prob);
+        softmax(o);
+        probs.push_back(o[y-1]);
     }
     return probs;
 }
@@ -324,13 +279,13 @@ std::vector<double> FlatModel::predict_proba(const feature_node* x, const std::v
 /* get number of classes */
 unsigned long FlatModel::getNrClass()
 {
-    return this->W.k;
+    return this->W.cols();
 }
 
 /* get number of features (bias included) */ 
 unsigned long FlatModel::getNrFeatures()
 {
-    return this->W.d;
+    return this->W.rows();
 }
 
 /* save model to file */
@@ -397,8 +352,8 @@ void FlatModel::load(const char* model_file_name)
             else
             {
                 // first create W & D matrix
-                this->W = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
-                this->D = Matrix{new double[prob->d*prob->hstruct[0].size()]{0}, prob->d, prob->hstruct[0].size()};
+                this->W = Eigen::MatrixXd::Random(prob->d, prob->hstruct[0].size());
+                this->D = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
                 this->setWeightVector(line);         
             } 
         }

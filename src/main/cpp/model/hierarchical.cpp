@@ -2,13 +2,8 @@
     Author: Thomas Mortier 2019-2020
 
     Implementation of model based on h-softmax
-
-    TODO: mini-batch training
 */
 
-#include "model/hierarchical.h"
-#include "data.h"
-#include "utils.h"
 #include <string>
 #include <iostream>
 #include <iomanip>
@@ -21,6 +16,11 @@
 #include <vector>
 #include <random>
 #include <fstream>
+#include "model/hierarchical.h"
+#include "data.h"
+#include "utils.h"
+#include "Eigen/Dense"
+#include "Eigen/SparseCore"
 
 /* CONSTRUCTORS AND DESTRUCTOR */
 
@@ -28,9 +28,9 @@
 HNode::HNode(const problem &prob) 
 {
     // first init W matrix
-    this->W = Matrix{new double[prob.d], prob.d, 0};
+    this->W = Eigen::MatrixXd::Random(prob.d, 1);
     // init D vector
-    this->D = Matrix{new double[prob.d], prob.d, 0};
+    this->D = Eigen::MatrixXd::Zero(prob.d, 1);
     // set y attribute of this node (i.e., root)
     this->y = prob.hstruct[0];
     // now construct tree
@@ -41,20 +41,15 @@ HNode::HNode(const problem &prob)
 /* constructor for all nodes except root */
 HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
 {
-    // only init D if internal node! (TODO: optimize for internal nodes with one (internal) node as child)
+    // only init D if internal node!
     if (y.size() > 1)
     {
         // first init W matrix
-        this->W = Matrix{new double[prob.d], prob.d, 0};
+        this->W = Eigen::MatrixXd::Random(prob.d, 1);
         // init D vector
-        this->D = Matrix{new double[prob.d], prob.d, 0};
+        this->D = Eigen::MatrixXd::Zero(prob.d, 1);
     }
 } 
-
-HNode::~HNode()
-{
-    this->free();
-}
 
 /* PUBLIC */
 
@@ -62,24 +57,22 @@ HNode::~HNode()
     Predict branch, given instance.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
     Return: 
         index branch with highest (conditional) probability
 */
-unsigned long HNode::predict(const feature_node *x)
+unsigned long HNode::predict(const Eigen::SparseVector<double>& x)
 {
     unsigned long max_i {0};
     if (this->chn.size() > 1)
     {
-        // forward step
-        double* o {new double[this->W.k]()}; // array of exp
-        // Wtx
-        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
-        // get index max
-        double* max_o {std::max_element(o, o+this->W.k)}; 
-        max_i = static_cast<unsigned long>(max_o-o);
-        // delete
-        delete[] o;
+        // forward step (Wtx)
+        Eigen::VectorXd o = this->W.transpose() * x;
+        // apply softmax
+        softmax(o);
+        Eigen::VectorXd::Index max_ind;
+        o.maxCoeff(&max_ind);
+        max_i = max_ind;
     }
     return max_i;
 }
@@ -88,26 +81,21 @@ unsigned long HNode::predict(const feature_node *x)
     Get probability of branch, given instance.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
         ind: index of branch
     Return: 
         probability of branch with index ind
 */
-double HNode::predict(const feature_node *x, const unsigned long ind)
+double HNode::predict(const Eigen::SparseVector<double>& x, const unsigned long ind)
 {
     double prob {1.0};
     if (this->chn.size() > 1)
     {
-        // forward step
-        double* o {new double[this->W.k]()}; // array of exp
-        // Wtx
-        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
+        // forward step (Wtx)
+        Eigen::VectorXd o = this->W.transpose() * x;
         // apply softmax
-        softmax(o, this->W.k);
-        // return prob
+        softmax(o);
         prob = o[ind];
-        // delete
-        delete[] o;
     }
     return prob;
 }
@@ -116,50 +104,38 @@ double HNode::predict(const feature_node *x, const unsigned long ind)
     Forward pass and backprop call.
 
     Arguments:
-        x: feature node
+        x: sparse feature vector
         ind: index for branch to be updated
         lr: learning rate for SGD
         fast: whether to apply fast (but less accurate) updates or not
     Return: 
         probability for branch with index ind (needed for loss)
 */
-double HNode::update(const feature_node *x, const unsigned long ind, const double lr, const bool fast)
+double HNode::update(const Eigen::SparseVector<double>& x, const unsigned long ind, const double lr, const bool fast)
 {
     double prob {1.0};
     if (this->chn.size() > 1)
     {
-        // forward step
-        double* o {new double[this->W.k]()}; // array of exp
-        // Wtx
-        dgemv(1.0, const_cast<const double*>(this->W.value), x, o, this->W.k);
+        // forward step (Wtx)
+        Eigen::VectorXd o = this->W.transpose() * x;
         // apply softmax
-        softmax(o, this->W.k); 
-        // set delta's 
+        softmax(o);
+        // calculate derivatives and backprop 
         if (fast)
         {
-            dvscalm((o[ind]-1), x, this->D.value, this->D.k, ind);
-            // backward step
-            dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, ind);
+            // derivatives
+            this->D.col(ind) = (o[ind]-1.0)*x;
+            // and backpropagate
+            this->W.col(ind) = lr*(this->W.col(ind) - this->D.col(ind));
         }
         else
         {
-            double t {0.0};
-            for(unsigned long i=0; i<this->D.k; ++i)
-            {
-                if(static_cast<const unsigned long&>(i) == ind)
-                    t = 1.0;
-                else
-                    t = 0.0;
-
-                dvscalm((o[i]-t), x, this->D.value, this->D.k, i);
-            }
-            // backward step
-            for (unsigned long i=0; i<this->W.k; ++i)
-                dsubmv(lr, this->W.value, const_cast<const double*>(this->D.value), this->W.d, this->W.k, i);
+            // derivatives
+            dvscalm(D, o, ind, x);
+            // and backpropagate
+            this->W = this->W - lr*this->D;
         }    
         prob = o[ind];
-        // delete
-        delete[] o;
     }
     return prob;
 }
@@ -169,7 +145,7 @@ void HNode::reset()
 {
     // reinitialize W
     if (this->chn.size() > 1)
-        initUW(static_cast<double>(-1.0/this->W.d), static_cast<double>(1.0/this->W.d), this->W.value, this->W.d, this->W.k);
+        inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /*
@@ -210,14 +186,11 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
             if (tot_len_y_chn == this->y.size())
             {
                 // allocate weight and delta vectors 
-                delete[] this->W.value;
-                delete[] this->D.value;
-                this->W.value = new double[this->W.d*this->chn.size()]{0};
-                this->D.value = new double[this->D.d*this->chn.size()]{0};
+                this->W.resize(this->W.rows(), this->chn.size());
+                this->D.resize(this->D.rows(), this->chn.size());
+                // initialize W matrix
+                inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
             }
-            // set k size attribute
-            this->W.k = this->chn.size();
-            this->D.k = this->chn.size();
         }
     }
     else
@@ -228,29 +201,23 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
     }
 }
 
-/* deallocate memory (W and D) for current node */
-void HNode::free()
-{
-    if (this->chn.size() > 1)
-    { 
-        delete[] this->W.value;
-        delete[] this->D.value;
-    }
-}  
-
 /* returns weights for current node in string representation (row-major order, space separated) */
 std::string HNode::getWeightVector()
 {
     std::string ret_arr {""};
     if (this->chn.size() > 1)
     {
-        for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
+        // process all elements in row-major order
+        for (unsigned long i=0; i<this->W.rows(); ++i)
         {
-            std::stringstream str_stream;
-            str_stream << std::fixed << std::setprecision(18) << std::to_string(this->W.value[i]);
-            ret_arr += str_stream.str();
-            if (i!=(this->W.d*this->W.k)-1)
-                ret_arr += ' ';
+            for (unsigned long j=0; j<this->W.cols(); ++j)
+            {
+                std::stringstream str_stream;
+                str_stream << std::to_string(this->W(i,j));
+                ret_arr += str_stream.str();
+                if ((i!=this->W.rows()-1) || (j!=this->W.cols()-1))
+                    ret_arr += ' ';
+            }
         }
     }
     return ret_arr;
@@ -265,8 +232,12 @@ void HNode::setWeightVector(std::string w_str)
         std::istringstream istr_stream {w_str};
         // weights are separated by ' ', hence, split accordingly
         std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
-        for (unsigned long i=0; i<this->W.d*this->W.k; ++i)
-            this->W.value[i] = std::stod(tokens[i]);
+        // run over weights in row-major order and save to W
+        for (unsigned long i=0; i<this->W.rows(); ++i)
+        {
+            for (unsigned long j=0; j<this->W.cols(); ++j)
+                this->W(i,j) = std::stod(tokens[(i*this->W.cols())+j]);
+        }
     }
 }
 
@@ -461,7 +432,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
                     double i_loss {0.0};
-                    feature_node* x {this->prob->X[n]};
+                    Eigen::SparseVector<double> x {this->prob->X[n]};
                     std::vector<unsigned long> y {this->prob->y[n]}; // our class 
                     HNode* visit_node = this->root;
                     while (!visit_node->chn.empty())
@@ -515,7 +486,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     Return: 
         label (class) of leaf node 
 */
-unsigned long HierModel::predict(const feature_node *x)
+unsigned long HierModel::predict(const Eigen::SparseVector<double>& x)
 {
     if (root == nullptr)
     {
@@ -542,7 +513,7 @@ unsigned long HierModel::predict(const feature_node *x)
     Return: 
         vector of probabilities
 */
-std::vector<double> HierModel::predict_proba(const feature_node* x, const std::vector<unsigned long> yv)
+std::vector<double> HierModel::predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> yv)
 {
     std::vector<double> probs; 
     // run over all labels for which we need to calculate probs
@@ -595,7 +566,7 @@ unsigned long HierModel::getNrFeatures()
     if (this->prob != nullptr)
         return this->prob->d;
     else
-        return this->root->W.d; 
+        return this->root->W.rows(); 
 }
 
 /* save model to file */

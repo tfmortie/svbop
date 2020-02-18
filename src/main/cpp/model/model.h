@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <vector>
+#include "Eigen/Dense"
+#include "Eigen/SparseCore"
 
 /* type of model */
 enum class ModelType {
@@ -17,34 +19,19 @@ enum class ModelType {
     HSOFTMAXF
 };
 
-/* struct which allows for sparse feature representations */
-struct feature_node
-{
-	long index;
-	double value;
-};
-
 /* struct which contains learning problem specific information */
 struct problem
 {
     /* DATA */
 	unsigned long n, d; /* number of instances and features (including bias) */
     std::vector<std::vector<unsigned long>> hstruct; /* structure classification problem */
-	unsigned long *y; /* vector with classes */
-	feature_node **X; /* array with instances */
+    std::vector<unsigned long> y; /* vector with classes */
+    std::vector<Eigen::SparseVector<double>> X; /* vector with sparse vectors */
 	double bias; /* < 0 if no bias */
     /* LEARNING */
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
     bool fast; /* fast backprop (h-softmax) */
-};
-
-/* matrix container for weight and delta matrices */
-struct Matrix
-{
-    double* value; /* should be D x K */
-    unsigned long d; /* D */
-    unsigned long k; /* K */
 };
 
 /* superclass model */
@@ -63,8 +50,8 @@ class Model
         virtual void performCrossValidation(unsigned int k) = 0;
         virtual void reset() = 0;
         virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1) = 0;
-        virtual unsigned long predict(const feature_node* x) = 0;
-        virtual std::vector<double> predict_proba(const feature_node* x, const std::vector<unsigned long> ind = {}) = 0;
+        virtual unsigned long predict(const Eigen::SparseVector<double>& x) = 0;
+        virtual std::vector<double> predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> ind = {}) = 0;
         virtual unsigned long getNrClass() = 0;
         virtual unsigned long getNrFeatures() = 0;
         virtual void save(const char* model_file_name) = 0;
