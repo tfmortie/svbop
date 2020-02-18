@@ -213,9 +213,9 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                 {
                     Eigen::SparseVector<double> x {this->prob->X[n]};
                     unsigned long y {this->prob->y[n]}; // our class 
-                    std::cout << "Update instance " << n << "...\n";
+                    //std::cout << "Update instance " << n << "...\n";
                     double i_p {this->update(x, y, this->prob->lr)};
-                    std::cout << "Done!\n";
+                    //std::cout << "Done!\n";
                     double i_loss {std::log2((i_p<=EPS ? EPS : i_p))};
                     e_loss += -i_loss;
                     n_cntr += 1;
