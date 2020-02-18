@@ -30,7 +30,7 @@ int main(int argc, char** argv)
         {
             FlatModel model = FlatModel(&prob);
             model.printInfo(0); 
-            model.performCrossValidation(2);
+            //model.performCrossValidation(2);
             // train model on complete dataset
             auto t1 = std::chrono::high_resolution_clock::now();
             model.fit();
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
         {
             HierModel model = HierModel(&prob);
             model.printInfo(0); 
-            model.performCrossValidation(2);
+            //model.performCrossValidation(2);
             // train model on complete dataset
             auto t1 = std::chrono::high_resolution_clock::now();
             model.fit();
