@@ -5,6 +5,8 @@
 */
 
 #include "data.h"
+#include "Eigen/Dense"
+#include "Eigen/SparseCore"
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -23,8 +25,6 @@ void getProblem(ParseResult &presult, problem &p)
     // add structure classification problem 
     p.hstruct = processHierarchy(presult.hierarchy_path);
     // get x (features) and y (labels)
-    p.y = new unsigned long[p.n];
-    p.X = new feature_node*[p.n];
     processData(presult.file_path, p);
     // and number of epochs and learning rate 
     p.ne = presult.ne;
@@ -61,12 +61,9 @@ void processData(const std::string &file, problem &p)
             std::istringstream istr_stream {line};
             std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
             // we can now init our feature_node row
-            if (p.bias >= 0.0)
-                p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size()+1)]; // +1 for bias and terminator
-            else
-                p.X[i] = new feature_node[static_cast<unsigned long>(tokens.size())]; 
+            p.X.push_back(Eigen::SparseVector<double>(p.d));
             // assign class 
-            p.y[i] = static_cast<unsigned long>(std::stol(tokens[0]));
+            p.y.push_back(static_cast<unsigned long>(std::stol(tokens[0])));
             for (unsigned int j=1; j<tokens.size(); ++j)
             {
                 try 
@@ -74,9 +71,10 @@ void processData(const std::string &file, problem &p)
                      // token represents int:double, hence split on :
                     std::string str_int {tokens[j].substr(0, tokens[j].find(":"))};
                     std::string str_double {tokens[j].substr(tokens[j].find(":")+1, std::string::npos)};
-                    // now assign to feature_node
-                    p.X[i][j-1].index = std::stol(str_int)+1;
-                    p.X[i][j-1].value = std::stod(str_double);  
+                    // now add to sparse vector 
+                    unsigned long index {static_cast<unsigned long>(std::stol(str_int))};
+                    double val {std::stod(str_double)};
+                    p.X[i].insert(index) = val; 
                 }
                 catch( std::exception& e)
                 {
@@ -85,17 +83,8 @@ void processData(const std::string &file, problem &p)
                 }
             }   
             // add bias if needed
-            if (p.bias > -1)
-            {
-                p.X[i][tokens.size()-1].index = static_cast<long>(p.d);
-                p.X[i][tokens.size()-1].value = p.bias;
-                p.X[i][tokens.size()].index = -1;
-                p.X[i][tokens.size()].value = 0.0;
-            }
-            // add terminator
-            unsigned long offset {static_cast<unsigned long>((p.bias > -1 ? 0 : -1))};
-            p.X[i][tokens.size()+offset].index = -1;
-            p.X[i][tokens.size()+offset].value = 0.0;
+            if (p.bias >= 0)
+                p.X[i].insert(p.d-1) = 1;
             ++i;
         }
     }
