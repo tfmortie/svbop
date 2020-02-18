@@ -25,8 +25,10 @@
 FlatModel::FlatModel(const problem* prob) : Model(prob)
 {
     // create W & D matrix
-    this->W = Eigen::MatrixXd::Random(prob->d, prob->hstruct[0].size());
+    this->W = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
     this->D = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
+    // initialize W matrix
+    inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /* constructor (predict mode) */
@@ -190,7 +192,7 @@ void FlatModel::performCrossValidation(unsigned int k)
 void FlatModel::reset()
 {
     // reinitialize W
-    this->W.setRandom();
+    inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /* fit on data (in problem instance), while ignoring instances with ind in ign_index */

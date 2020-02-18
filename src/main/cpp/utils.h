@@ -15,5 +15,6 @@ const double EPS = 0.001; /* min. cut-off for probability (avoid log underflow) 
 
 void softmax(Eigen::VectorXd& o);
 void dvscalm(Eigen::MatrixXd& D, const Eigen::VectorXd& o, const unsigned long i, const Eigen::SparseVector<double>& x);
+void inituw(Eigen::MatrixXd& W, const double min, const double max);
 
 #endif

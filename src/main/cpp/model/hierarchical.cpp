@@ -145,7 +145,7 @@ void HNode::reset()
 {
     // reinitialize W
     if (this->chn.size() > 1)
-        this->W.setRandom();
+        inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
 /*
@@ -188,6 +188,8 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
                 // allocate weight and delta vectors 
                 this->W.resize(this->W.rows(), this->chn.size());
                 this->D.resize(this->D.rows(), this->chn.size());
+                // initialize W matrix
+                inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
             }
         }
     }

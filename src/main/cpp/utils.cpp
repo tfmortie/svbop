@@ -43,3 +43,13 @@ void dvscalm(Eigen::MatrixXd& D, const Eigen::VectorXd& o, const unsigned long i
         D.col(k) = x*diff;
     }
 }
+
+/*
+    Initialize weights in D from uniform distribution U(min,max).
+*/
+void inituw(Eigen::MatrixXd& W, const double min, const double max)
+{
+    double range {max-min};
+    W = Eigen::MatrixXd::Random(W.rows(), W.cols());
+    W = (W + Eigen::MatrixXd::Constant(W.rows(), W.cols(), 1.))*range/2.;
+}
