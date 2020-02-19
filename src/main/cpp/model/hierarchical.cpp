@@ -585,11 +585,15 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
         else
         {
             // we are at an internal node: add children to priority queue
+            // forward step (Wtx)
+            Eigen::VectorXd o = current.node->W.transpose() * x;
+            // apply softmax
+            softmax(o);
             for (unsigned long i = 0; i<current.node->chn.size(); ++i)
             {
-                // calculate probability mass of child node
+                // (recursively) calculate probability mass of child node
                 HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.node->predict(x, i)};
+                double c_node_prob {current.prob*o(i)};
                 // and add to priority queue
                 q.push({c_node, c_node_prob});
             }
@@ -632,11 +636,15 @@ std::vector<unsigned long> HierModel::predict_rbop(const Eigen::SparseVector<dou
         else
         {
             // we are at an internal node: add children to priority queue
+            // forward step (Wtx)
+            Eigen::VectorXd o = current.node->W.transpose() * x;
+            // apply softmax
+            softmax(o);
             for (unsigned long i = 0; i<current.node->chn.size(); ++i)
             {
-                // calculate probability mass of child node
+                // (recursively) calculate probability mass of child node
                 HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.node->predict(x, i)};
+                double c_node_prob {current.prob*o(i)};
                 // and add to priority queue
                 q.push({c_node, c_node_prob});
             }
