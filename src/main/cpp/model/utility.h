@@ -32,5 +32,7 @@ struct param
 
 double g(std::vector<unsigned long> pred, param params);
 double u(std::vector<unsigned long> pred, unsigned long y, param params);
+unsigned int parseParamValues(std::string paramvals, param& params);
+std::string toStr(UtilityType type);
 
 #endif

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include "arg.h"
+#include "model/utility.h"
 
 /* print help information to stderr */
 void showHelp()
@@ -32,7 +33,10 @@ void showHelp()
         -ne, --nepochs          Number of epochs
         -lr, --learnrate        Learning rate 
         -d, --dim               Number of features of dataset (bias not included)
+        -u, --utility           Utility function (format: {precision|recall|fb|credal|exp|log|reject|genreject})
+        -p, --param             Parameters for utility (format: [valparam1,valparam2,...])
         -m, --model             Model path for predicting/saving
+        -f, --file              File path for saving predictions (if specified)           
     )help"; 
     exit(1);
 }
@@ -83,8 +87,13 @@ void parseArgs(int argc, char** args, ParseResult& presult)
                 presult.model_type = ModelType::SOFTMAX;
             else if (static_cast<std::string>(args[i+1]).compare("1") == 0)
                 presult.model_type = ModelType::HSOFTMAXS;
-            else
+            else if (static_cast<std::string>(args[i+1]).compare("2") == 0)
                 presult.model_type = ModelType::HSOFTMAXF;
+            else
+            {
+                std::cerr << "[error] Model type " << static_cast<std::string>(args[i+1]) << " not defined!\n";
+                showHelp();
+            }
             ++i;
         }
         // check for -m, --model
@@ -123,6 +132,51 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             presult.lr = std::stod(args[i+1]);
             ++i;
         }
+        // check for -u, --utility
+        else if (static_cast<std::string>(args[i]).compare("-u") == 0 || static_cast<std::string>(args[i]).compare("--utility") == 0)
+        {
+            // process value for argument -u 
+            if (static_cast<std::string>(args[i+1]).compare("precision") == 0)
+                presult.utility_params.utility = UtilityType::PRECISION;
+            else if (static_cast<std::string>(args[i+1]).compare("recall") == 0)
+                presult.utility_params.utility = UtilityType::RECALL;
+            else if (static_cast<std::string>(args[i+1]).compare("fb") == 0)
+                presult.utility_params.utility = UtilityType::FB;
+            else if (static_cast<std::string>(args[i+1]).compare("credal") == 0)
+                presult.utility_params.utility = UtilityType::CREDAL;
+            else if (static_cast<std::string>(args[i+1]).compare("exp") == 0)
+                presult.utility_params.utility = UtilityType::EXP;
+            else if (static_cast<std::string>(args[i+1]).compare("log") == 0)
+                presult.utility_params.utility = UtilityType::LOG;
+            else if (static_cast<std::string>(args[i+1]).compare("reject") == 0)
+                presult.utility_params.utility = UtilityType::REJECT;
+            else if (static_cast<std::string>(args[i+1]).compare("genreject") == 0)
+                presult.utility_params.utility = UtilityType::GENREJECT;
+            else
+            {
+                std::cerr << "[error] Utility type " << static_cast<std::string>(args[i+1]) << " not defined!\n";
+                showHelp();
+            }
+            ++i;
+        }
+        // check for -p, --param
+        else if (static_cast<std::string>(args[i]).compare("-p") == 0 || static_cast<std::string>(args[i]).compare("--param") == 0)
+        {
+            // process value for argument -p 
+            unsigned int ret {parseParamValues(static_cast<std::string>(args[i+1]), presult.utility_params)};
+            if (ret!=0)
+            {
+                std::cerr << "[error] Values " << static_cast<std::string>(args[i+1]) << " for specified utility not correct !\n";
+                showHelp();
+            }
+            ++i;
+        }
+        // check for -f, --file
+        else if (static_cast<std::string>(args[i]).compare("-f") == 0 || static_cast<std::string>(args[i]).compare("--file") == 0)
+        {
+            presult.pred_path= args[i+1];
+            ++i;
+        }
         else
         {
             std::cerr << "[error] Argument " << args[i] << " not defined!\n";
@@ -131,8 +185,9 @@ void parseArgs(int argc, char** args, ParseResult& presult)
     }
 }
 
-/* Check correctness of provided arguments
-   TODO: check if all information relevant for the problem is specified through ParseResult
+/* 
+    Check correctness of provided arguments
+    TODO: check if all information relevant for the problem is specified through ParseResult
 */
 void checkArgs(const ParseResult& presult)
 {

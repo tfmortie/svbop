@@ -9,20 +9,24 @@
 
 #include <string>
 #include "model/model.h"
+#include "model/utility.h"
 
 struct ParseResult {
     /* MODE */
-    bool train;
+    bool train {true};
     /* FILE PATHS */
-    std::string file_path;
-    std::string model_path;
-    std::string hierarchy_path;
+    std::string file_path {""};
+    std::string model_path {"./model.out"};
+    std::string hierarchy_path {""};
+    std::string pred_path {"./model_preds.csv"};
     /* MODEL */
-    ModelType model_type;
-    double bias; 
-    unsigned long num_features;
-    unsigned int ne;
-    double lr;
+    ModelType model_type {ModelType::SOFTMAX};
+    double bias {-1.0}; 
+    unsigned long num_features {0};
+    unsigned int ne {0};
+    double lr {0.0};
+    /* UTILITY */ 
+    param utility_params;
 };
 
 void showHelp();

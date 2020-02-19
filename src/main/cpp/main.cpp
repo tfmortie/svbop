@@ -14,11 +14,12 @@
 #include "model/model.h"
 #include "model/flat.h"
 #include "model/hierarchical.h"
+#include "model/utility.h"
 
 /*  main call */
 int main(int argc, char** argv)
 {
-    ParseResult parser_result {true, "", "./model.out", "", ModelType::SOFTMAX, -1.0, 0, 0, 0.0};
+    ParseResult parser_result;
     parseArgs(argc, argv, parser_result);
     if (parser_result.train)
     {
