@@ -1,7 +1,7 @@
 /* 
     Author: Thomas Mortier 2019-2020
 
-    Some important math operations 
+    Some important math operations for models
 */
 
 #include <cmath>
@@ -9,7 +9,7 @@
 #include <random>
 #include <iostream>
 #include <algorithm>
-#include "utils.h"
+#include "mmath.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 

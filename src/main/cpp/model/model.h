@@ -4,11 +4,12 @@
     Header shared between different models
 */
 
-#ifndef MODEL_U
-#define MODEL_U
+#ifndef MODEL_H
+#define MODEL_H
 
 #include <iostream>
 #include <vector>
+#include "model/utility.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 
@@ -19,7 +20,7 @@ enum class ModelType {
     HSOFTMAXF
 };
 
-/* struct which contains learning problem specific information */
+/* struct which contains information regarding the learning task for a model */
 struct problem
 {
     /* DATA */
@@ -32,17 +33,19 @@ struct problem
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
     bool fast; /* fast backprop (h-softmax) */
+    /* PREDICTING */
+    param utility;
 };
 
 /* superclass model */
 class Model 
 {
     protected:
-        const problem* prob;
+        problem* prob;
         
     public:
-        Model(const problem* prob) : prob{prob} {};
-        Model(const char* model_file_name) : prob{nullptr} {};
+        Model(problem* prob) : prob{prob} {};
+        Model(const char* model_file_name, problem* prob) : prob{prob} {};
         virtual ~Model() {};
 
         virtual void printStruct() = 0;
@@ -52,6 +55,8 @@ class Model
         virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1) = 0;
         virtual unsigned long predict(const Eigen::SparseVector<double>& x) = 0;
         virtual std::vector<double> predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> ind = {}) = 0;
+        virtual std::vector<unsigned long> predict_ubop(const Eigen::SparseVector<double>& x) = 0;
+        virtual std::vector<unsigned long> predict_rbop(const Eigen::SparseVector<double>& x) = 0;
         virtual unsigned long getNrClass() = 0;
         virtual unsigned long getNrFeatures() = 0;
         virtual void save(const char* model_file_name) = 0;

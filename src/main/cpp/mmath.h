@@ -1,11 +1,11 @@
 /* 
     Author: Thomas Mortier 2019-2020
 
-    Header utils  
+    Header math operations for models
 */
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef MATH_H
+#define MATH_H
 
 #include "model/model.h"
 #include "Eigen/Dense"

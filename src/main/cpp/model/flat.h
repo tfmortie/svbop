@@ -25,8 +25,8 @@ class FlatModel : Model
         void setWeightVector(std::string w_str);
 
     public:
-        FlatModel(const problem* prob);
-        FlatModel(const char* model_file_name);
+        FlatModel(problem* prob);
+        FlatModel(const char* model_file_name, problem* prob);
 
         void printStruct();
         void printInfo(const bool verbose = 0);
@@ -35,6 +35,8 @@ class FlatModel : Model
         void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1);
         unsigned long predict(const Eigen::SparseVector<double>& x);
         std::vector<double> predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> yv = {});
+        std::vector<unsigned long> predict_ubop(const Eigen::SparseVector<double>& x);
+        std::vector<unsigned long> predict_rbop(const Eigen::SparseVector<double>& x);
         unsigned long getNrClass();
         unsigned long getNrFeatures();
         void save(const char* model_file_name);
