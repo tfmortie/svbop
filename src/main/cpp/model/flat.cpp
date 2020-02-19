@@ -12,6 +12,8 @@
 #include <ctime> 
 #include <iterator>
 #include <algorithm>
+#include <functional>
+#include <queue>
 #include "model/model.h"
 #include "model/flat.h"
 #include "data.h"
@@ -265,15 +267,91 @@ std::vector<double> FlatModel::predict_proba(const Eigen::SparseVector<double>& 
 {
     std::vector<double> probs; 
     // run over all labels for which we need to calculate probs
+    // forward step (Wtx)
+    Eigen::VectorXd o = this->W.transpose() * x;
+    // apply softmax
+    softmax(o);
     for (unsigned long y : yv)
-    {
-        // forward step (Wtx)
-        Eigen::VectorXd o = this->W.transpose() * x;
-        // apply softmax
-        softmax(o);
         probs.push_back(o[y-1]);
-    }
     return probs;
+}
+
+/* 
+    Implementation for unrestricted bayes-optimal predictor.
+    See https://arxiv.org/abs/1906.08129. 
+*/
+std::vector<unsigned long> FlatModel::predict_ubop(const Eigen::SparseVector<double>& x)
+{
+    // initalize prediction set, with probability and expected utility
+    std::vector<unsigned long> set;
+    double set_prob {0.0};
+    double set_eu {0.0};
+    // initialize priority queue that sorts in decreasing order of probability
+    std::priority_queue<std::pair<double,unsigned long>, std::vector<std::pair<double,unsigned long>>, std::less<std::pair<double,unsigned long>>> q;
+    // forward step (Wtx)
+    Eigen::VectorXd o = this->W.transpose() * x;
+    // apply softmax
+    softmax(o);
+    // push probs to priority queue
+    for (unsigned long i=0; i<o.size(); ++i)
+        q.push(std::make_pair(o(i),i+1));
+    // now run over tuples in priority queue 
+    while (!q.empty())
+    {
+        // get current (prob, class)
+        std::pair<double, unsigned long> current = q.top(); 
+        // push class to prediction set and add probability
+        set.push_back(current.second);
+        set_prob += current.first;
+        // compute utility according to Eq. (5)
+        double current_eu {set_prob*g(set, this->prob->utility)};
+        // check if current solution is worse than best solution so far (early stopping criterion)
+        if (current_eu < set_eu)
+        {
+            // remove last element from set (because previous one was optimal) and break
+            set.pop_back();
+            break;
+        }
+        else
+        {
+            // set new optimal expected utility and pop first element from priority queue
+            set_eu = current_eu;
+            q.pop();
+        }
+    }
+    return set;
+}
+
+/* 
+    Implementation for restricted bayes-optimal predictor.
+    See https://arxiv.org/abs/1906.08129. 
+*/
+std::vector<unsigned long> FlatModel::predict_rbop(const Eigen::SparseVector<double>& x)
+{
+    // initalize optimal prediction set and corresponding expected utility 
+    std::vector<unsigned long> opt_set;
+    double opt_set_eu {0.0};
+    // forward step (Wtx)
+    Eigen::VectorXd o = this->W.transpose() * x;
+    // apply softmax
+    softmax(o);
+    // now run over candidate solutions in struct
+    for (std::vector<unsigned long> c_set : this->prob->hstruct)
+    {
+        // calculate probability mass 
+        double cur_set_prob {0.0};
+        for (unsigned long y : c_set)
+            cur_set_prob += o[y-1];
+        // and expected utility for candidate
+        double cur_set_eu {cur_set_prob*g(c_set, this->prob->utility)};
+        // set new optimal solution, in case we have an improvement
+        if (cur_set_eu > opt_set_eu)
+        {
+            opt_set = c_set;
+            opt_set_eu = cur_set_eu;
+        }
+    }
+    return opt_set;
 }
 
 /* get number of classes */

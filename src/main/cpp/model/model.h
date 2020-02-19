@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <vector>
+#include "model/utility.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 
@@ -32,6 +33,8 @@ struct problem
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
     bool fast; /* fast backprop (h-softmax) */
+    /* PREDICTING */
+    param utility;
 };
 
 /* superclass model */
@@ -52,6 +55,8 @@ class Model
         virtual void fit(const std::vector<unsigned long>& ign_index = {}, const bool verbose = 1) = 0;
         virtual unsigned long predict(const Eigen::SparseVector<double>& x) = 0;
         virtual std::vector<double> predict_proba(const Eigen::SparseVector<double>& x, const std::vector<unsigned long> ind = {}) = 0;
+        virtual std::vector<unsigned long> predict_ubop(const Eigen::SparseVector<double>& x) = 0;
+        virtual std::vector<unsigned long> predict_rbop(const Eigen::SparseVector<double>& x) = 0;
         virtual unsigned long getNrClass() = 0;
         virtual unsigned long getNrFeatures() = 0;
         virtual void save(const char* model_file_name) = 0;

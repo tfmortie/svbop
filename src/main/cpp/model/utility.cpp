@@ -17,7 +17,7 @@
         pred: prediction which corresponds to a set of labels
         params: information regarding utility
 */
-double g(std::vector<unsigned long> pred, param params)
+double g(const std::vector<unsigned long>& pred, const param& params)
 {
     switch(params.utility) {
         case UtilityType::CREDAL: return (params.delta/static_cast<double>(pred.size()))-(params.gamma/pow(static_cast<double>(pred.size()),2.0));
@@ -41,7 +41,7 @@ double g(std::vector<unsigned long> pred, param params)
         y: ground-truth
         params: information regarding utility
 */
-double u(std::vector<unsigned long> pred, unsigned long y, param params)
+double u(const std::vector<unsigned long>& pred, unsigned long y, const param& params)
 {
     if (std::find(pred.begin(), pred.end(), y) != pred.end())
         return g(pred, params);

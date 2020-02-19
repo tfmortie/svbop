@@ -10,14 +10,18 @@
 #include <vector>
 
 enum class UtilityType {
-    PRECISION, /* Del Coz et al., 2009 */
-    RECALL, /* Del Coz et al., 2009 */
-    FB, /* Del Coz et al., 2009 */
-    CREDAL, /* Zaffalon et al., 2012 */
-    EXP, /* Zaffalon et al., 2012 */
-    LOG, /* Zaffalon et al., 2012 */
-    REJECT, /* Ramaswamy et al., 2015 */
-    GENREJECT /* Mortier et al., 2019 */
+    /* Del Coz et al., 2009 */
+    PRECISION, 
+    RECALL, 
+    FB, 
+    /* Zaffalon et al., 2012 */
+    CREDAL, 
+    EXP, 
+    LOG, 
+    /* Ramaswamy et al., 2015 */
+    REJECT, 
+    /* Mortier et al., 2019 */
+    GENREJECT 
 };
 
 struct param
@@ -30,8 +34,8 @@ struct param
     unsigned long K {0};
 };
 
-double g(std::vector<unsigned long> pred, param params);
-double u(std::vector<unsigned long> pred, unsigned long y, param params);
+double g(const std::vector<unsigned long>& pred, const param& params);
+double u(const std::vector<unsigned long>& pred, unsigned long y, const param& params);
 unsigned int parseParamValues(std::string paramvals, param& params);
 std::string toStr(UtilityType type);
 

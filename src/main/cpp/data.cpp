@@ -34,6 +34,8 @@ void getProblem(ParseResult &presult, problem &p)
         p.fast = 1;
     else
         p.fast = 0;
+    // set utility information for prediction
+    p.utility = presult.utility_params;
 }
 
 /* get size of data */
