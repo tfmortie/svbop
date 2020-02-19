@@ -15,7 +15,7 @@
 #include "model/model.h"
 #include "model/flat.h"
 #include "data.h"
-#include "utils.h"
+#include "mmath.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 

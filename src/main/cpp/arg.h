@@ -4,8 +4,8 @@
     Header argument parser
 */
 
-#ifndef ARG_U
-#define ARG_U
+#ifndef ARG_H
+#define ARG_H
 
 #include <string>
 #include "model/model.h"

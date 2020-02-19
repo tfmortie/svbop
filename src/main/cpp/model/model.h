@@ -4,8 +4,8 @@
     Header shared between different models
 */
 
-#ifndef MODEL_U
-#define MODEL_U
+#ifndef MODEL_H
+#define MODEL_H
 
 #include <iostream>
 #include <vector>
@@ -19,7 +19,7 @@ enum class ModelType {
     HSOFTMAXF
 };
 
-/* struct which contains learning problem specific information */
+/* struct which contains information regarding the learning task for a model */
 struct problem
 {
     /* DATA */

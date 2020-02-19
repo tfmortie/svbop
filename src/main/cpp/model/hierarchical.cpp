@@ -18,7 +18,7 @@
 #include <fstream>
 #include "model/hierarchical.h"
 #include "data.h"
-#include "utils.h"
+#include "mmath.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 

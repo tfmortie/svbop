@@ -4,8 +4,8 @@
     Header data processor 
 */
 
-#ifndef DATA_U
-#define DATA_U
+#ifndef DATA_H
+#define DATA_H
 
 #include "arg.h"
 #include "model/model.h"
