@@ -41,11 +41,11 @@ struct problem
 class Model 
 {
     protected:
-        const problem* prob;
+        problem* prob;
         
     public:
-        Model(const problem* prob) : prob{prob} {};
-        Model(const char* model_file_name) : prob{nullptr} {};
+        Model(problem* prob) : prob{prob} {};
+        Model(const char* model_file_name, problem* prob) : prob{prob} {};
         virtual ~Model() {};
 
         virtual void printStruct() = 0;

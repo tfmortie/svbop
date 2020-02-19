@@ -43,8 +43,8 @@ class HierModel : Model
         HNode* root;
         
     public:
-        HierModel(const problem* prob);
-        HierModel(const char* model_file_name);
+        HierModel(problem* prob);
+        HierModel(const char* model_file_name, problem* prob);
         ~HierModel();
 
         void printStruct();

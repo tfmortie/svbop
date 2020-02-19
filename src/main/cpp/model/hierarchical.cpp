@@ -270,14 +270,14 @@ void HNode::print()
 /* CONSTRUCTOR AND DESTRUCTOR */
 
 /* constructor (training mode) */
-HierModel::HierModel(const problem* prob) : Model(prob)
+HierModel::HierModel(problem* prob) : Model(prob)
 {
     // construct tree 
     root = new HNode(*prob);
 }
 
 /* constructor (predict mode) */
-HierModel::HierModel(const char* model_file_name) : Model(model_file_name)
+HierModel::HierModel(const char* model_file_name, problem* prob) : Model(model_file_name, prob)
 {
     std::cout << "Loading model from " << model_file_name << "...\n";
     this->load(model_file_name);
@@ -328,65 +328,58 @@ void HierModel::printInfo(const bool verbose)
 /* k-fold cross-validation */
 void HierModel::performCrossValidation(unsigned int k)
 {
-    if (this->prob != nullptr)
+    std::cout << "---- " << k << "-Fold CV ----\n";
+    // first create index vector
+    std::vector<unsigned long> ind_arr;
+    for(unsigned long i=0; i<this->prob->n; ++i)
+        ind_arr.push_back(i);
+    // now shuffle index vector 
+    auto rng = std::default_random_engine {};
+    std::shuffle(std::begin(ind_arr), std::end(ind_arr), rng);
+    // calculate size of each test fold
+    unsigned long ns_fold {this->prob->n/static_cast<unsigned long>(k)};
+    // start kfcv
+    unsigned int iter {0};
+    while (iter < k)
     {
-        std::cout << "---- " << k << "-Fold CV ----\n";
-        // first create index vector
-        std::vector<unsigned long> ind_arr;
-        for(unsigned long i=0; i<this->prob->n; ++i)
-            ind_arr.push_back(i);
-        // now shuffle index vector 
-        auto rng = std::default_random_engine {};
-        std::shuffle(std::begin(ind_arr), std::end(ind_arr), rng);
-        // calculate size of each test fold
-        unsigned long ns_fold {this->prob->n/static_cast<unsigned long>(k)};
-        // start kfcv
-        unsigned int iter {0};
-        while (iter < k)
+        std::cout << "FOLD " << iter+1 << '\n';
+        // first clear weights 
+        this->reset();
+        // extract test fold indices
+        std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>(iter)*ns_fold);
+        std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>((iter+1))*ns_fold);
+        std::vector<unsigned long> testfold_ind(i_start, i_stop);
+        // now start fitting 
+        this->fit(testfold_ind, 0);
+        // and validate on training and test fold
+        double acc {0.0};
+        double n_cntr {0.0};
+        for (unsigned long n = 0; n<this->prob->n; ++n)
         {
-            std::cout << "FOLD " << iter+1 << '\n';
-            // first clear weights 
-            this->reset();
-            // extract test fold indices
-            std::vector<unsigned long>::const_iterator i_start = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>(iter)*ns_fold);
-            std::vector<unsigned long>::const_iterator i_stop = ind_arr.begin() + static_cast<long>(static_cast<unsigned long>((iter+1))*ns_fold);
-            std::vector<unsigned long> testfold_ind(i_start, i_stop);
-            // now start fitting 
-            this->fit(testfold_ind, 0);
-            // and validate on training and test fold
-            double acc {0.0};
-            double n_cntr {0.0};
-            for (unsigned long n = 0; n<this->prob->n; ++n)
+            if (std::find(testfold_ind.begin(), testfold_ind.end(), n) == testfold_ind.end())
             {
-                if (std::find(testfold_ind.begin(), testfold_ind.end(), n) == testfold_ind.end())
-                {
-                    unsigned long pred {this->predict(this->prob->X[n])};
-                    unsigned long targ {this->prob->y[n]};
-                    acc += (pred==targ);
-                    n_cntr += 1.0;
-                }
-            }
-            std::cout << "Training accuracy: " << (acc/n_cntr)*100.0 << "% \n";
-            acc = 0.0;
-            n_cntr = 0.0;
-            for (unsigned long n = 0; n<testfold_ind.size(); ++n)
-            {
-                unsigned long pred {this->predict(this->prob->X[testfold_ind[n]])};
-                unsigned long targ {this->prob->y[testfold_ind[n]]};
+                unsigned long pred {this->predict(this->prob->X[n])};
+                unsigned long targ {this->prob->y[n]};
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
-            std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "% \n";
-            ++iter;
         }
-        // and finally reset again
-        this->reset();
-        std::cout << "-------------------\n\n";
+        std::cout << "Training accuracy: " << (acc/n_cntr)*100.0 << "% \n";
+        acc = 0.0;
+        n_cntr = 0.0;
+        for (unsigned long n = 0; n<testfold_ind.size(); ++n)
+        {
+            unsigned long pred {this->predict(this->prob->X[testfold_ind[n]])};
+            unsigned long targ {this->prob->y[testfold_ind[n]]};
+            acc += (pred==targ);
+            n_cntr += 1.0;
+        }
+        std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "% \n";
+        ++iter;
     }
-    else
-    {
-        std::cerr << "[warning] Model is in predict mode!\n";
-    }
+    // and finally reset again
+    this->reset();
+    std::cout << "-------------------\n\n";
 }
 
 /* reset all nodes model */
@@ -420,7 +413,7 @@ void HierModel::reset()
 void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
     std::cout << "Fit model...\n";
-    if (this->root != nullptr && this->prob != nullptr)
+    if (this->root != nullptr)
     {
         unsigned int e_cntr {0};
         while (e_cntr < this->prob->ne)
@@ -472,10 +465,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     }
     else
     {
-        if(this->root == nullptr)
-            std::cerr << "[warning] Model has not been constructed yet!\n";
-        else
-            std::cerr << "[warning] Model is in predict mode!\n";
+        std::cerr << "[warning] Model has not been constructed yet!\n";
     }
 }
 
@@ -570,6 +560,7 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
     {
         // get current (prob, HNode*)
         std::pair<double, HNode*> current = q.top(); 
+        q.pop();
         // check if current node is a leaf 
         if (current.second->y.size() == 1 && current.second->chn.size() == 0)
         {
@@ -589,7 +580,6 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
             {
                 // set new optimal expected utility and pop first element from priority queue
                 set_eu = current_eu;
-                q.pop();
             }
         }
         else
@@ -625,6 +615,7 @@ std::vector<unsigned long> HierModel::predict_rbop(const Eigen::SparseVector<dou
     {
         // get current (prob, HNode*)
         std::pair<double, HNode*> current = q.top();   
+        q.pop();
         // calculate expected utility for our current node
         double cur_set_eu {current.first*g(current.second->y, this->prob->utility)};
         // set new optimal solution, in case we have an improvement
@@ -657,70 +648,58 @@ std::vector<unsigned long> HierModel::predict_rbop(const Eigen::SparseVector<dou
 /* get number of classes */
 unsigned long HierModel::getNrClass()
 {
-    if (this->prob != nullptr)
-        return this->prob->hstruct[0].size();
-    else
-        return this->root->y.size();
+    return this->prob->hstruct[0].size();
 }
 
 /* get number of features (bias included) */ 
 unsigned long HierModel::getNrFeatures()
 {
-    if (this->prob != nullptr)
-        return this->prob->d;
-    else
-        return this->root->W.rows(); 
+    return this->prob->d;
 }
 
 /* save model to file */
 void HierModel::save(const char* model_file_name)
 {
     std::cout << "Saving model to " << model_file_name << "...\n";
-    if (this->prob != nullptr)
+    // create output file stream
+    std::ofstream model_file;
+    model_file.open(model_file_name, std::ofstream::trunc);
+    // STRUCT
+    model_file << "struct [";
+    // process all except last element
+    for (unsigned int i=0; i<this->prob->hstruct.size()-1; ++i)
+        model_file << vecToArr(this->prob->hstruct[i]) << ',';
+    // and now last element
+    model_file << vecToArr(this->prob->hstruct[this->prob->hstruct.size()-1]) << "]\n";
+    // #features
+    model_file << "nr_feature " << this->prob->d << '\n';
+    // bias
+    model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
+    // weights
+    model_file << "w \n";
+    std::queue<HNode*> visit_list; 
+    visit_list.push(this->root);
+    while (!visit_list.empty())
     {
-        // create output file stream
-        std::ofstream model_file;
-        model_file.open(model_file_name, std::ofstream::trunc);
-        // STRUCT
-        model_file << "struct [";
-        // process all except last element
-        for (unsigned int i=0; i<this->prob->hstruct.size()-1; ++i)
-            model_file << vecToArr(this->prob->hstruct[i]) << ',';
-        // and now last element
-        model_file << vecToArr(this->prob->hstruct[this->prob->hstruct.size()-1]) << "]\n";
-        // #features
-        model_file << "nr_feature " << this->prob->d << '\n';
-        // bias
-        model_file << "bias " << (this->prob->bias >= 0. ? 1.0 : -1.0) << '\n';
-        // weights
-        model_file << "w \n";
-        std::queue<HNode*> visit_list; 
-        visit_list.push(this->root);
-        while (!visit_list.empty())
+        HNode* visit_node = visit_list.front();
+        // store weights
+        model_file << visit_node->getWeightVector() << '\n';
+        // remove from Q
+        visit_list.pop();
+        // only internal nodes are going to be processed eventually (and end up in Q)
+        for(auto* c : visit_node->chn)
         {
-            HNode* visit_node = visit_list.front();
-            // store weights
-            model_file << visit_node->getWeightVector() << '\n';
-            // remove from Q
-            visit_list.pop();
-            // only internal nodes are going to be processed eventually (and end up in Q)
-            for(auto* c : visit_node->chn)
-            {
-                if(!c->chn.empty())
-                    visit_list.push(c);
-            }            
-        }
-        // close file
-        model_file.close();
+            if(!c->chn.empty())
+                visit_list.push(c);
+        }            
     }
-    else
-        std::cerr << "[warning] Model is in predict mode!\n";
+    // close file
+    model_file.close();
 }
 
 /* load model from file */
 void HierModel::load(const char* model_file_name)
 {
-    problem* prob = new problem{}; 
     //1. create prob instance, based on information in file: h_struct, nr_feature, bias
     std::ifstream in {model_file_name};
     std::string line;
@@ -738,15 +717,15 @@ void HierModel::load(const char* model_file_name)
                 // not yet in w mode, hence, get tokens based on ' ' 
                 std::vector<std::string> tokens {std::istream_iterator<std::string> {istr_stream}, std::istream_iterator<std::string>{}};
                 if (tokens[0] == "struct")
-                    prob->hstruct = strToHierarchy(tokens[1]);
+                    this->prob->hstruct = strToHierarchy(tokens[1]);
                 else if(tokens[0] == "nr_feature")
-                    prob->d = static_cast<unsigned long>(std::stol(tokens[1]));
+                    this->prob->d = static_cast<unsigned long>(std::stol(tokens[1]));
                 else if(tokens[0] == "bias")
-                    prob->bias = std::stod(tokens[1]);
+                    this->prob->bias = std::stod(tokens[1]);
                 else
                 {
                     // all required info, for tree construction, is stored in prob!
-                    this->root = new HNode(*prob);
+                    this->root = new HNode(*this->prob);
                     // and store root in Q
                     visit_list.push(this->root);
                     // set w mode
@@ -774,5 +753,4 @@ void HierModel::load(const char* model_file_name)
         std::cerr << "[error] Exception " << e.what() << " catched!\n";
         exit(1);
     }
-    delete prob;
 }
