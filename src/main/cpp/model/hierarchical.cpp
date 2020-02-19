@@ -553,20 +553,20 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
     double set_prob {0.0};
     double set_eu {0.0};
     // initialize priority queue that sorts in decreasing order of probability mass of nodes
-    std::priority_queue<std::pair<double,HNode*>, std::vector<std::pair<double,HNode*>>, std::less<std::pair<double,HNode*>>> q;
+    std::priority_queue<QueueNode> q;
     // add root 
-    q.push(std::make_pair(1.0, this->root));
+    q.push({this->root, 1.0});
     while (!q.empty())
     {
         // get current (prob, HNode*)
-        std::pair<double, HNode*> current = q.top(); 
+        QueueNode current {q.top()};
         q.pop();
         // check if current node is a leaf 
-        if (current.second->y.size() == 1 && current.second->chn.size() == 0)
+        if (current.node->chn.size() == 0)
         {
             // push class of leaf to prediction set and add probability
-            set.push_back(current.second->y[0]);
-            set_prob += current.first;
+            set.push_back(current.node->y[0]);
+            set_prob += current.prob;
             // compute utility according to Eq. (5)
             double current_eu {set_prob*g(set, this->prob->utility)};
             // check if current solution is worse than best solution so far (early stopping criterion)
@@ -585,13 +585,13 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
         else
         {
             // we are at an internal node: add children to priority queue
-            for (unsigned long i = 0; i<current.second->chn.size(); ++i)
+            for (unsigned long i = 0; i<current.node->chn.size(); ++i)
             {
                 // calculate probability mass of child node
-                HNode* c_node {current.second->chn[i]};
-                double c_node_prob {current.second->predict(x, i)};
+                HNode* c_node {current.node->chn[i]};
+                double c_node_prob {current.node->predict(x, i)};
                 // and add to priority queue
-                q.push(std::make_pair(c_node_prob, c_node));
+                q.push({c_node, c_node_prob});
             }
         }
     }
@@ -608,37 +608,37 @@ std::vector<unsigned long> HierModel::predict_rbop(const Eigen::SparseVector<dou
     std::vector<unsigned long> opt_set;
     double opt_set_eu {0.0};
     // initialize priority queue that sorts in decreasing order of probability mass of nodes
-    std::priority_queue<std::pair<double,HNode*>, std::vector<std::pair<double,HNode*>>, std::less<std::pair<double,HNode*>>> q;
+    std::priority_queue<QueueNode> q;
     // add root 
-    q.push(std::make_pair(1.0, this->root));
+    q.push({this->root, 1.0});
     while (!q.empty())
     {
         // get current (prob, HNode*)
-        std::pair<double, HNode*> current = q.top();   
+        QueueNode current = q.top();   
         q.pop();
         // calculate expected utility for our current node
-        double cur_set_eu {current.first*g(current.second->y, this->prob->utility)};
+        double cur_set_eu {current.prob*g(current.node->y, this->prob->utility)};
         // set new optimal solution, in case we have an improvement
         if (cur_set_eu > opt_set_eu)
         {
-            opt_set = current.second->y;
+            opt_set = current.node->y;
             opt_set_eu = cur_set_eu;
         }
         // check if we are at a leaf node (early stopping criterion)
-        if (current.second->y.size() == 1 && current.second->chn.size() == 0)
+        if (current.node->y.size() == 1 && current.node->chn.size() == 0)
         {
             break;
         }
         else
         {
             // we are at an internal node: add children to priority queue
-            for (unsigned long i = 0; i<current.second->chn.size(); ++i)
+            for (unsigned long i = 0; i<current.node->chn.size(); ++i)
             {
                 // calculate probability mass of child node
-                HNode* c_node {current.second->chn[i]};
-                double c_node_prob {current.second->predict(x, i)};
+                HNode* c_node {current.node->chn[i]};
+                double c_node_prob {current.node->predict(x, i)};
                 // and add to priority queue
-                q.push(std::make_pair(c_node_prob, c_node));
+                q.push({c_node, c_node_prob});
             }
         }
     }

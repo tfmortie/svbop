@@ -14,6 +14,15 @@
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 
+/* struct which will be used for priority queue's */
+struct QueueNode
+{
+    HNode* node;
+    double prob;
+    /* comparator for use with priority queue's */
+    bool operator<(const QueueNode& n) const { return prob < n.prob;}
+};
+
 /* class which represents a node in the hierarchical softmax model */
 class HNode
 {
