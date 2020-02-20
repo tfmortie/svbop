@@ -585,17 +585,23 @@ std::vector<unsigned long> HierModel::predict_ubop(const Eigen::SparseVector<dou
         else
         {
             // we are at an internal node: add children to priority queue
-            // forward step (Wtx)
-            Eigen::VectorXd o = current.node->W.transpose() * x;
-            // apply softmax
-            softmax(o);
-            for (unsigned long i = 0; i<current.node->chn.size(); ++i)
+            // check if we are dealing with an internal node and single child
+            if (current.node->y.size() == 1)
+                q.push({current.node->chn[0], current.prob*1.0});
+            else
             {
-                // (recursively) calculate probability mass of child node
-                HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.prob*o(i)};
-                // and add to priority queue
-                q.push({c_node, c_node_prob});
+                // forward step (Wtx)
+                Eigen::VectorXd o = current.node->W.transpose() * x;
+                // apply softmax
+                softmax(o);
+                for (unsigned long i = 0; i<current.node->chn.size(); ++i)
+                {
+                    // (recursively) calculate probability mass of child node
+                    HNode* c_node {current.node->chn[i]};
+                    double c_node_prob {current.prob*o(i)};
+                    // and add to priority queue
+                    q.push({c_node, c_node_prob});
+                }
             }
         }
     }
@@ -629,24 +635,30 @@ std::vector<unsigned long> HierModel::predict_rbop(const Eigen::SparseVector<dou
             opt_set_eu = cur_set_eu;
         }
         // check if we are at a leaf node (early stopping criterion)
-        if (current.node->y.size() == 1 && current.node->chn.size() == 0)
+        if (current.node->chn.size() == 0)
         {
             break;
         }
         else
         {
             // we are at an internal node: add children to priority queue
-            // forward step (Wtx)
-            Eigen::VectorXd o = current.node->W.transpose() * x;
-            // apply softmax
-            softmax(o);
-            for (unsigned long i = 0; i<current.node->chn.size(); ++i)
+            // check if we are dealing with an internal node and single child
+            if (current.node->y.size() == 1)
+                q.push({current.node->chn[0], current.prob*1.0});
+            else
             {
-                // (recursively) calculate probability mass of child node
-                HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.prob*o(i)};
-                // and add to priority queue
-                q.push({c_node, c_node_prob});
+                // forward step (Wtx)
+                Eigen::VectorXd o = current.node->W.transpose() * x;
+                // apply softmax
+                softmax(o);
+                for (unsigned long i = 0; i<current.node->chn.size(); ++i)
+                {
+                    // (recursively) calculate probability mass of child node
+                    HNode* c_node {current.node->chn[i]};
+                    double c_node_prob {current.prob*o(i)};
+                    // and add to priority queue
+                    q.push({c_node, c_node_prob});
+                }
             }
         }
     }
