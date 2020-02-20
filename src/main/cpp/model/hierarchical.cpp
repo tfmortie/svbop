@@ -127,7 +127,7 @@ double HNode::update(const Eigen::SparseVector<double>& x, const unsigned long i
             // derivatives
             this->D.col(ind) = (o[ind]-1.0)*x;
             // and backpropagate
-            this->W.col(ind) = lr*(this->W.col(ind) - this->D.col(ind));
+            this->W.col(ind) = this->W.col(ind) - lr*this->D.col(ind);
         }
         else
         {
