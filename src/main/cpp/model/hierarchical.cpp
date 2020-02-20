@@ -158,7 +158,6 @@ void HNode::reset()
 */
 void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
 {
-    // todo: optimize?
     // check if leaf or internal node 
     if (this->chn.size() > 0)
     {
