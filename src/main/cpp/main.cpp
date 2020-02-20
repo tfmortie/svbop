@@ -74,6 +74,8 @@ int main(int argc, char** argv)
             std::cout << "PROB. MODEL\n";
             auto t1 = std::chrono::high_resolution_clock::now();
             double acc {0.0};
+            double U {0.0};
+            double setsize {0.0};
             double n_cntr {0.0};
             for(unsigned long n=0; n<prob.n; ++n)
             {
@@ -82,33 +84,37 @@ int main(int argc, char** argv)
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
-            std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "%\n";
+            std::cout << "Acc.: " << (acc/n_cntr)*100.0 << "%\n";
             auto t2 = std::chrono::high_resolution_clock::now();
             auto time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
             // predictions (UBOP)
-            std::cout << "UBOP\n";
+            std::cout << "UBOP " << toStr(prob.utility.utility) << std::endl;
             t1 = std::chrono::high_resolution_clock::now();
             acc = 0.0;
-            double setsize = 0.0;
+            U = 0.0;
+            setsize = 0.0;
             n_cntr = 0.0;
             for(unsigned long n=0; n<prob.n; ++n)
             {
                 std::vector<unsigned long> pred {model.predict_ubop(prob.X[n])};
                 unsigned long targ {prob.y[n]};
                 setsize += pred.size();
-                acc += u(pred, targ, prob.utility);
+                acc += u(pred, targ, {UtilityType::RECALL});
+                U += u(pred, targ, prob.utility);
                 n_cntr += 1.0;
             }
-            std::cout << "Test avg. " << toStr(prob.utility.utility) << ": " << (acc/n_cntr)*100.0 << "\n";
-            std::cout << "Avg. set size: " << (setsize/n_cntr) << '\n';
+            std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
+            std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+            std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
             t2 = std::chrono::high_resolution_clock::now();
             time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
             // predictions (RBOP)
-            std::cout << "RBOP\n";
+            std::cout << "RBOP " << toStr(prob.utility.utility) << std::endl;
             t1 = std::chrono::high_resolution_clock::now();
             acc = 0.0;
+            U = 0.0;
             setsize = 0.0;
             n_cntr = 0.0;
             for(unsigned long n=0; n<prob.n; ++n)
@@ -116,14 +122,16 @@ int main(int argc, char** argv)
                 std::vector<unsigned long> pred {model.predict_rbop(prob.X[n])};
                 unsigned long targ {prob.y[n]};
                 setsize += pred.size();
-                acc += u(pred, targ, prob.utility);
+                acc += u(pred, targ, {UtilityType::RECALL});
+                U += u(pred, targ, prob.utility);
                 n_cntr += 1.0;
             }
-            std::cout << "Test avg. " << toStr(prob.utility.utility) << ": " << (acc/n_cntr)*100.0 << "\n";
-            std::cout << "Avg. set size: " << (setsize/n_cntr) << '\n';
+            std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
+            std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+            std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
             t2 = std::chrono::high_resolution_clock::now();
             time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
         }
         else
         {
@@ -133,6 +141,8 @@ int main(int argc, char** argv)
             std::cout << "PROB. MODEL\n";
             auto t1 = std::chrono::high_resolution_clock::now();
             double acc {0.0};
+            double U {0.0};
+            double setsize {0.0};
             double n_cntr {0.0};
             for(unsigned long n=0; n<prob.n; ++n)
             {
@@ -141,33 +151,37 @@ int main(int argc, char** argv)
                 acc += (pred==targ);
                 n_cntr += 1.0;
             }
-            std::cout << "Test accuracy: " << (acc/n_cntr)*100.0 << "%\n";
+            std::cout << "Acc.: " << (acc/n_cntr)*100.0 << "%\n";
             auto t2 = std::chrono::high_resolution_clock::now();
             auto time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
             // predictions (UBOP)
-            std::cout << "UBOP\n";
+            std::cout << "UBOP " << toStr(prob.utility.utility) << std::endl;
             t1 = std::chrono::high_resolution_clock::now();
             acc = 0.0;
-            double setsize = 0.0;
+            U = 0.0;
+            setsize = 0.0;
             n_cntr = 0.0;
             for(unsigned long n=0; n<prob.n; ++n)
             {
                 std::vector<unsigned long> pred {model.predict_ubop(prob.X[n])};
                 unsigned long targ {prob.y[n]};
                 setsize += pred.size();
-                acc += u(pred, targ, prob.utility);
+                acc += u(pred, targ, {UtilityType::RECALL});
+                U += u(pred, targ, prob.utility);
                 n_cntr += 1.0;
             }
-            std::cout << "Test avg. " << toStr(prob.utility.utility) << ": " << (acc/n_cntr)*100.0 << "\n";
-            std::cout << "Avg. set size: " << (setsize/n_cntr)<< '\n';
+            std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
+            std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+            std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
             t2 = std::chrono::high_resolution_clock::now();
             time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
             // predictions (RBOP)
-            std::cout << "RBOP\n";
+            std::cout << "RBOP " << toStr(prob.utility.utility) << std::endl;
             t1 = std::chrono::high_resolution_clock::now();
             acc = 0.0;
+            U = 0.0;
             setsize = 0.0;
             n_cntr = 0.0;
             for(unsigned long n=0; n<prob.n; ++n)
@@ -175,14 +189,16 @@ int main(int argc, char** argv)
                 std::vector<unsigned long> pred {model.predict_rbop(prob.X[n])};
                 unsigned long targ {prob.y[n]};
                 setsize += pred.size();
-                acc += u(pred, targ, prob.utility);
+                acc += u(pred, targ, {UtilityType::RECALL});
+                U += u(pred, targ, prob.utility);
                 n_cntr += 1.0;
             }
-            std::cout << "Test avg. " << toStr(prob.utility.utility) << ": " << (acc/n_cntr)*100.0 << "\n";
-            std::cout << "Avg. set size: " << (setsize/n_cntr) << '\n';
+            std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
+            std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+            std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
             t2 = std::chrono::high_resolution_clock::now();
             time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
-            std::cout << "Execution time: " << time << " ms\n";
+            std::cout << "t: " << time << " ms\n";
         }
     }
     return 0;
