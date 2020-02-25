@@ -21,11 +21,11 @@ void showHelp()
         -h, --help              Help documentation
     
     args:
-        -i, --input             Training/prediction data in LIBSVM format
+        -i, --input             Training/test data in LIBSVM format
         -t, --type              Model type for training
                 0 := softmax with SGD
-                1 := hierarchical softmax with SGD and slow training
-                2 := hierarchical sofmax with SGD and fast training
+                1 := hierarchical softmax with SGD and slow updates
+                2 := hierarchical softmax with SGD and fast updates
         -s, --struct            Structure classification problem
         -b, --bias              Bias for linear model 
               >=0 := bias included 
