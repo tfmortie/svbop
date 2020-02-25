@@ -34,7 +34,7 @@ void showHelp()
         -lr, --learnrate        Learning rate 
         -d, --dim               Number of features of dataset (bias not included)
         -u, --utility           Utility function (format: {precision|recall|fb|credal|exp|log|reject|genreject})
-        -p, --param             Parameters for utility (format: [valparam1,valparam2,...])
+        -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
         -f, --file              File path for saving predictions (if specified)           
     )help"; 
