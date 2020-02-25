@@ -8,15 +8,15 @@ Implementation is provided in C++ and Python.
 
 ### C++
 
-* Implementation for the hierarchical model, together with UBOP and RBOP, can be found under **src/main/cpp/models/hierarchical.cpp**.
-* Implementation for the flat model, together with UBOP and RBOP, can be found under **src/main/cpp/models/flat.cpp**.
+* Implementation of the hierarchical model, together with UBOP and RBOP, can be found under **src/main/cpp/models/hierarchical.cpp**.
+* Implementation of the flat model, together with UBOP and RBOP, can be found under **src/main/cpp/models/flat.cpp**.
 
 **Important**: make sure to build with flags `-O3 -mtune=native -march=native`, in order to have optimal runtime performance. This is necessary for the Eigen library, which is used for (efficient) mathematical operations.
 
 ### Python
 
-* Implementation for the hierarchical model (HNet), together with UBOP and RBOP, can be found under **src/main/py/models/hclassifier.py**.
-* Implementation for the flat model (FNet), together with UBOP and RBOP, can be found under **src/main/py/models/fclassifier.py**.
+* Implementation of the hierarchical model (HNet), together with UBOP and RBOP, can be found under **src/main/py/models/hclassifier.py**.
+* Implementation of the flat model (FNet), together with UBOP and RBOP, can be found under **src/main/py/models/fclassifier.py**.
 
 ## Running code 
 
