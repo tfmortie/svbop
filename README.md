@@ -32,7 +32,7 @@ svp <command> <args>
         -h, --help              Help documentation
     
     args:
-        -i, --input             Training/prediction data in LIBSVM format
+        -i, --input             Training/test data in LIBSVM format
         -t, --type              Model type for training
                 0 := softmax with SGD
                 1 := hierarchical softmax with SGD and slow training
