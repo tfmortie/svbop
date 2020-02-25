@@ -54,7 +54,7 @@ svp <command> <args>
 
 #### Training HNet and FNet
 
-You can train HNet and FNet as follows:
+Example code for training HNet and FNet:
 ```
 python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m hierarchical -s $( cat ./data/VOC2006/hierarchy_full.txt ) --gpu --vgg --no-ft 
 python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m flat --gpu --vgg --no-ft 
@@ -66,7 +66,7 @@ python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m hierarchical -k 10 --lea
 
 #### Testing HNet and FNet
 
-Subsequently, you can test HNet and FNet as follows:
+Example code for testing HNet and FNet:
 ```
 python -u test.py -m flat -pm ./FLAT_MCC_TRAIN_0.2_True_100_0.001_32_5_False_True_VOC2006_VOC2006.pt -pcsv ./data/VOC2006/TEST.csv --gpu --vgg --store 
 python -u test.py -m hierarchical -pm ./HIERARCHICAL_MCC_TRAIN_0.2_True_100_0.001_32_5_False_True_VOC2006_19_False_0_VOC2006.pt -pcsv ./data/VOC2006/TEST.csv -s $( cat ./data/VOC2006/hierarchy_full.txt ) --gpu --vgg --store 
