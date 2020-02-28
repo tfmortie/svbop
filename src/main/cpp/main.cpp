@@ -3,7 +3,6 @@
 
     Main
 
-    TODO: add support for mini-batch training
     TODO: add SGD with (nesterov) momentum
     TODO: improve memory requirements for Adam (M, V)
     TODO: improve argument checking
