@@ -46,6 +46,7 @@ svp <command> <args>
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
         -lr, --learnrate        Learning rate 
+        -bs,  --batchsize       Mini-batch size
         -ho, --holdout          Holdout percentage for fitting
         -pa, --patience         Patience for early stopping
         -d, --dim               Number of features of dataset (bias not included)
@@ -53,7 +54,7 @@ svp <command> <args>
         -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
         -f, --file              File path for saving predictions (if specified)  
-        -s, --seed              Seed for random engines     
+        -s, --seed              Seed for random engines       
 ```
 
 ### Python
