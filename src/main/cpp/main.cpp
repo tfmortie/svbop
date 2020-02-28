@@ -3,9 +3,11 @@
 
     Main file
 
-    TODO: check for mem leaks
+    TODO: early stopping
     TODO: add support for mini-batch training
     TODO: add adagrad/adam optimization
+    TODO: clean main.cpp
+    TODO: check for mem leaks
 */
 
 #include <iostream>
@@ -18,11 +20,7 @@
 #include "model/hierarchical.h"
 #include "model/utility.h"
 
-/*  
-    Main call 
-
-    TODO: clean and optimize
-*/
+/*  main call */
 int main(int argc, char** argv)
 {
     ParseResult parser_result;

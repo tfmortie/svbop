@@ -21,11 +21,11 @@ void showHelp()
         -h, --help              Help documentation
     
     args:
-        -i, --input             Training/prediction data in LIBSVM format
+        -i, --input             Training/test data in LIBSVM format
         -t, --type              Model type for training
                 0 := softmax with SGD
-                1 := hierarchical softmax with SGD and slow training
-                2 := hierarchical sofmax with SGD and fast training
+                1 := hierarchical softmax with SGD and slow updates
+                2 := hierarchical softmax with SGD and fast updates
         -s, --struct            Structure classification problem
         -b, --bias              Bias for linear model 
               >=0 := bias included 
@@ -34,7 +34,7 @@ void showHelp()
         -lr, --learnrate        Learning rate 
         -d, --dim               Number of features of dataset (bias not included)
         -u, --utility           Utility function (format: {precision|recall|fb|credal|exp|log|reject|genreject})
-        -p, --param             Parameters for utility (format: [valparam1,valparam2,...])
+        -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
         -f, --file              File path for saving predictions (if specified)           
     )help"; 
