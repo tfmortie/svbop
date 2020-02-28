@@ -15,7 +15,7 @@
 #include "Eigen/SparseCore"
 
 /* main class (flat) softmax model */
-class FlatModel : Model
+class FlatModel : public Model
 {
     private:
         Eigen::MatrixXd W;

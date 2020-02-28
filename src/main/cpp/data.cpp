@@ -26,9 +26,10 @@ void getProblem(ParseResult &presult, problem &p)
     p.hstruct = processHierarchy(presult.hierarchy_path);
     // get x (features) and y (labels)
     processData(presult.file_path, p);
-    // and number of epochs and learning rate 
+    // and number of epochs, learning rate and patience
     p.ne = presult.ne;
     p.lr = presult.lr;
+    p.patience = presult.patience;
     // for h-softmax: check if slow or fast training
     if (presult.model_type == ModelType::HSOFTMAXF)
         p.fast = 1;

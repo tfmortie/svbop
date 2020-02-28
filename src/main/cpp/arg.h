@@ -25,8 +25,12 @@ struct ParseResult {
     unsigned long num_features {0};
     unsigned int ne {0};
     double lr {0.0};
+    double holdout {0.2};
+    int patience {5};
     /* UTILITY */ 
     param utility_params;
+    /* OTHER */
+    int seed {2020};
 };
 
 void showHelp();

@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <limits>
 #include "model/model.h"
 #include "model/flat.h"
 #include "data.h"
@@ -184,32 +185,80 @@ void FlatModel::reset()
     inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
 
-/* fit on data (in problem instance), while ignoring instances with ind in ign_index */
+/* fit on data (in problem instance), while validating on instances with ind in ign_index (if applicable) */
 void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
-    std::cout << "Fit model...\n";
+    if (ign_index.size() != 0)
+        std::cout << "Fit model on train/val (" << this->prob->n-ign_index.size() << '/' << ign_index.size() << ") data ...\n";
+    else
+        std::cout << "Fit model on train (" << this->prob->n << ") data ...\n";
     unsigned int e_cntr {0};
+    int patience_counter {0};
+    double prev_best_loss {std::numeric_limits<double>::max()};
     while (e_cntr < this->prob->ne)
     {
-        double e_loss {0.0};
-        double n_cntr {0.0};
-        // run over each instance 
+        // init. train/holdout loss and counter
+        double e_loss_train {0.0};
+        double e_loss_holdout {0.0};
+        double n_cntr_train {0.0};
+        double n_cntr_holdout {0.0};
+        // run over each instance in the training set
         for (unsigned long n = 0; n<this->prob->n; ++n)
         {
             if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
             {
                 Eigen::SparseVector<double> x {this->prob->X[n]};
                 unsigned long y {this->prob->y[n]}; // our class 
-                //std::cout << "Update instance " << n << "...\n";
                 double i_p {this->update(x, y, this->prob->lr)};
-                //std::cout << "Done!\n";
                 double i_loss {std::log2((i_p<=EPS ? EPS : i_p))};
-                e_loss += -i_loss;
-                n_cntr += 1;
+                e_loss_train += -i_loss;
+                n_cntr_train += 1;
+            }
+            else
+            {
+                // holdout example, hence, only compute loss
+                Eigen::SparseVector<double> x {this->prob->X[n]};
+                std::vector<unsigned long> yv{this->prob->y[n]}; // our class
+                double i_p{this->predict_proba(x,yv)[0]};
+                double i_loss {std::log2(i_p<=EPS ? EPS : i_p)};
+                e_loss_holdout += -i_loss;
+                n_cntr_holdout += 1;
             }
         }
-        if (verbose)
-            std::cout << "Epoch " << (e_cntr+1) << ": loss " << (e_loss/n_cntr) << '\n';
+        // average training loss
+        e_loss_train = e_loss_train/n_cntr_train;
+        if (ign_index.size() != 0)
+        {
+            // also calculate average holdout loss
+            e_loss_holdout = e_loss_holdout/n_cntr_holdout;
+            // check if we have an improvement, compared to previous epoch loss
+            if (e_loss_holdout < prev_best_loss)
+            {
+                prev_best_loss = e_loss_holdout;
+                patience_counter = 0; // reset patience counter
+            }
+            else
+            {
+                // increase patience counter
+                patience_counter += 1;
+            }
+            // check if we can early stop
+            if (patience_counter == this->prob->patience)
+            {
+                std::cout << "[info] Eearly stopping at epoch " << (e_cntr+1) << ": train loss " << e_loss_train << "  -  val loss  " << e_loss_holdout << '\n';
+                break;
+            }
+            else
+            {
+                if (verbose)
+                    std::cout << "Epoch " << (e_cntr+1) << ": train loss "<< e_loss_train << "  -  val loss  " << e_loss_holdout << '\n';
+            }
+        }
+        else
+        {
+            if (verbose)
+                std::cout << "Epoch " << (e_cntr+1) << ": loss "<< e_loss_train << '\n';
+        }
         ++e_cntr;
     }
     if (verbose)

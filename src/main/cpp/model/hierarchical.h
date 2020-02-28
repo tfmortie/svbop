@@ -37,7 +37,7 @@ class HNode
 };
 
 /* main class hierarchical softmax model */
-class HierModel : Model
+class HierModel : public Model
 {
     private:
         HNode* root;

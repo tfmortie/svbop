@@ -32,6 +32,7 @@ struct problem
     /* LEARNING */
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
+    int patience; /* patience for early stopping */
     bool fast; /* fast backprop (h-softmax) */
     /* PREDICTING */
     param utility;

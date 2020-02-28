@@ -32,11 +32,14 @@ void showHelp()
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
         -lr, --learnrate        Learning rate 
+        -ho, --holdout          Holdout percentage for fitting
+        -pa, --patience         Patience for early stopping
         -d, --dim               Number of features of dataset (bias not included)
         -u, --utility           Utility function (format: {precision|recall|fb|credal|exp|log|reject|genreject})
         -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
-        -f, --file              File path for saving predictions (if specified)           
+        -f, --file              File path for saving predictions (if specified)  
+        -s, --seed              Seed for random engines         
     )help"; 
     exit(1);
 }
@@ -132,6 +135,18 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             presult.lr = std::stod(args[i+1]);
             ++i;
         }
+        // check for -ho, --holdout
+        else if (static_cast<std::string>(args[i]).compare("-ho") == 0 || static_cast<std::string>(args[i]).compare("--holdout") == 0)
+        {
+            presult.holdout = std::stof(args[i+1]);
+            ++i;
+        }
+        // check for -pa, --patience
+        else if (static_cast<std::string>(args[i]).compare("-pa") == 0 || static_cast<std::string>(args[i]).compare("--patience") == 0)
+        {
+            presult.patience = std::stoi(args[i+1]);
+            ++i;
+        }
         // check for -u, --utility
         else if (static_cast<std::string>(args[i]).compare("-u") == 0 || static_cast<std::string>(args[i]).compare("--utility") == 0)
         {
@@ -175,6 +190,12 @@ void parseArgs(int argc, char** args, ParseResult& presult)
         else if (static_cast<std::string>(args[i]).compare("-f") == 0 || static_cast<std::string>(args[i]).compare("--file") == 0)
         {
             presult.pred_path= args[i+1];
+            ++i;
+        }
+        // check for -se, --seed
+        else if (static_cast<std::string>(args[i]).compare("-se") == 0 || static_cast<std::string>(args[i]).compare("--seed") == 0)
+        {
+            presult.seed = std::stoi(args[i+1]);
             ++i;
         }
         else
