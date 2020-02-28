@@ -18,7 +18,7 @@
 #include "model/model.h"
 #include "model/flat.h"
 #include "data.h"
-#include "mmath.h"
+#include "model/mmath.h"
 #include "Eigen/Dense"
 #include "Eigen/SparseCore"
 
@@ -61,14 +61,19 @@ double FlatModel::update(const Eigen::SparseVector<double>& x, const unsigned lo
     Eigen::VectorXd o = this->W.transpose() * x;
     // apply softmax
     softmax(o);
-    // set delta's 
+    // set derivatives 
     dvscalm(D, o, y-1, x);
-    // and update
-    if (this->prob->optim == OptimType::SGD)
-        sgd(this->W, this->D, this->prob->lr);
-    else
-        adam(this->W, this->D, this->M, this->V, this->prob->lr, t);
-
+    // and update in case we have processed a mini-batch
+    if (t % this->prob->batchsize == 0)
+    {
+        // calculate the average gradients
+        this->D = this->D/this->prob->batchsize;
+        if (this->prob->optim == OptimType::SGD)
+            sgd(this->W, this->D, this->prob->lr);
+        else
+            adam(this->W, this->D, this->M, this->V, this->prob->lr, std::floor(t/this->prob->batchsize));
+        this->D.setZero();
+    } 
     return o[y-1];
 }
 
@@ -199,10 +204,23 @@ void FlatModel::reset()
 /* fit on data (in problem instance), while validating on instances with ind in ign_index (if applicable) */
 void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verbose)
 {
+    std::cout << "---------------------------------------------------------------------------------\n";
     if (ign_index.size() != 0)
         std::cout << "Fit model on train/val (" << this->prob->n-ign_index.size() << '/' << ign_index.size() << ") data ...\n";
     else
         std::cout << "Fit model on train (" << this->prob->n << ") data ...\n";
+    std::cout << "---------------------------------------------------------------------------------\n";
+    std::cout << "* #Features: " << this->prob->d << '\n';
+    std::cout << "* #Classes: " << this->prob->hstruct[0].size() << '\n';
+    std::cout << "* #Epochs: " << this->prob->ne << '\n';
+    std::cout << "* Mini-batch size: " << this->prob->batchsize << '\n';
+    std::cout << "* Patience: " << this->prob->patience << '\n';
+    if (this->prob->optim == OptimType::SGD)
+        std::cout << "* Optimizer: SGD\n";
+    else
+        std::cout << "* Optimizer: Adam\n";
+    std::cout << "* Learning rate: " << this->prob->lr << '\n';
+    std::cout << "---------------------------------------------------------------------------------\n";
     unsigned int e_cntr {0};
     int patience_counter {0};
     double prev_best_loss {std::numeric_limits<double>::max()};
@@ -260,7 +278,7 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             // check if we can early stop
             if (patience_counter == this->prob->patience)
             {
-                std::cout << "[info] Eearly stopping at epoch " << (e_cntr+1) << ": train loss " << e_loss_train << "  -  val loss  " << e_loss_holdout << '\n';
+                std::cout << "Eearly stopping at epoch " << (e_cntr+1) << ": train loss " << e_loss_train << "  -  val loss  " << e_loss_holdout << '\n';
                 break;
             }
             else

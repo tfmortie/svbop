@@ -37,8 +37,9 @@ struct problem
 	double bias; /* < 0 if no bias */
     /* LEARNING */
     OptimType optim; /* optimizer */
-    unsigned int ne; /* number of epochs for training (SGD) */
-    double lr; /* learning rate for training (SGD) */
+    unsigned int ne; /* number of epochs for training */
+    double lr; /* learning rate for training */
+    unsigned int batchsize; /* mini-batch size */
     int patience; /* patience for early stopping */
     bool fast; /* fast backprop (h-softmax) */
     /* PREDICTING */

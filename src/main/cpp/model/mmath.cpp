@@ -80,8 +80,8 @@ void softmax(Eigen::VectorXd& o)
 }
 
 /* 
-    Set derivatives of softmax wrt categorical cross-entropy loss
-    forall k: D[:, k] = (ok-tk)*x
+    Set derivatives of softmax wrt categorical cross-entropy loss, taking into account a mini-batch
+    forall k: D[:, k] += (ok-tk)*x
     where for k=i tk=1 else tk=0
 */
 void dvscalm(Eigen::MatrixXd& D, const Eigen::VectorXd& o, const unsigned long i, const Eigen::SparseVector<double>& x)
@@ -91,7 +91,7 @@ void dvscalm(Eigen::MatrixXd& D, const Eigen::VectorXd& o, const unsigned long i
         // ok-tk
         double diff {(o[k]-static_cast<double>((k==i ? 1 : 0)))};
         // (ok-tk)*x
-        D.col(k) = x*diff;
+        D.col(k) += x*diff;
     }
 }
 

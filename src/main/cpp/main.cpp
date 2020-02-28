@@ -37,7 +37,6 @@ int main(int argc, char** argv)
             model = new FlatModel(&prob);
         else
             model = new HierModel(&prob);
-        model->printInfo(0); 
         //model.performCrossValidation(2);
         // train model 
         // first create index vector for holdout set (used for validation)

@@ -35,6 +35,7 @@ void showHelp()
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
         -lr, --learnrate        Learning rate 
+        -bs,  --batchsize        Mini-batch size
         -ho, --holdout          Holdout percentage for fitting
         -pa, --patience         Patience for early stopping
         -d, --dim               Number of features of dataset (bias not included)
@@ -151,6 +152,12 @@ void parseArgs(int argc, char** args, ParseResult& presult)
         else if (static_cast<std::string>(args[i]).compare("-lr") == 0 || static_cast<std::string>(args[i]).compare("--learnrate") == 0)
         {
             presult.lr = std::stod(args[i+1]);
+            ++i;
+        }
+        // check for -b, --batchsize
+        else if (static_cast<std::string>(args[i]).compare("-bs") == 0 || static_cast<std::string>(args[i]).compare("--batchsize") == 0)
+        {
+            presult.batchsize = static_cast<unsigned int>(std::stoi(args[i+1]));
             ++i;
         }
         // check for -ho, --holdout
