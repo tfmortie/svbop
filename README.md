@@ -33,12 +33,15 @@ svp <command> <args>
     
     args:
         -i, --input             Training/test data in LIBSVM format
-        -t, --type              Model type for training
-                0 := softmax with SGD
-                1 := hierarchical softmax with SGD and slow updates
-                2 := hierarchical softmax with SGD and fast updates
+        -t, --type              Probabilistic model type
+                0 := softmax
+                1 := hierarchical softmax with slow updates
+                2 := hierarchical softmax with fast updates
+        -o, --optim             Optimizer
+                0 := SGD
+                1 := Adam
         -s, --struct            Structure classification problem
-        -b, --bias              Bias for linear model 
+        -b, --bias              Bias for model 
               >=0 := bias included 
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
@@ -50,7 +53,7 @@ svp <command> <args>
         -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
         -f, --file              File path for saving predictions (if specified)  
-        -s, --seed              Seed for random engines  
+        -s, --seed              Seed for random engines     
 ```
 
 ### Python
