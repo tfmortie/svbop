@@ -20,6 +20,12 @@ enum class ModelType {
     HSOFTMAXF
 };
 
+/* type of optimizer */
+enum class OptimType {
+    SGD,
+    ADAM
+};
+
 /* struct which contains information regarding the learning task for a model */
 struct problem
 {
@@ -30,6 +36,7 @@ struct problem
     std::vector<Eigen::SparseVector<double>> X; /* vector with sparse vectors */
 	double bias; /* < 0 if no bias */
     /* LEARNING */
+    OptimType optim; /* optimizer */
     unsigned int ne; /* number of epochs for training (SGD) */
     double lr; /* learning rate for training (SGD) */
     int patience; /* patience for early stopping */

@@ -21,6 +21,7 @@ struct ParseResult {
     std::string pred_path {"./model_preds.csv"};
     /* MODEL */
     ModelType model_type {ModelType::SOFTMAX};
+    OptimType optim {OptimType::SGD};
     double bias {-1.0}; 
     unsigned long num_features {0};
     unsigned int ne {0};

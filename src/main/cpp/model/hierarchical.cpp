@@ -30,8 +30,10 @@ HNode::HNode(const problem &prob)
 {
     // first init W matrix
     this->W = Eigen::MatrixXd::Random(prob.d, 1);
-    // init D vector
+    // init D, M and V matrices (M and V for Adam)
     this->D = Eigen::MatrixXd::Zero(prob.d, 1);
+    this->M = Eigen::MatrixXd::Zero(prob.d, 1);
+    this->V = Eigen::MatrixXd::Zero(prob.d, 1);
     // set y attribute of this node (i.e., root)
     this->y = prob.hstruct[0];
     // now construct tree
@@ -47,8 +49,10 @@ HNode::HNode(std::vector<unsigned long> y, const problem &prob) : y{y}
     {
         // first init W matrix
         this->W = Eigen::MatrixXd::Random(prob.d, 1);
-        // init D vector
+        // init D, M and V matrices (M and V for Adam)
         this->D = Eigen::MatrixXd::Zero(prob.d, 1);
+        this->M = Eigen::MatrixXd::Zero(prob.d, 1);
+        this->V = Eigen::MatrixXd::Zero(prob.d, 1);
     }
 } 
 
@@ -107,14 +111,13 @@ double HNode::predict(const Eigen::SparseVector<double>& x, const unsigned long 
     Arguments:
         x: sparse feature vector
         ind: index for branch to be updated
-        lr: learning rate for SGD
-        fast: whether to apply fast (but less accurate) updates or not
+        t: time step in case of Adam optimization
     Return: 
         probability for branch with index ind (needed for loss)
 */
-double HNode::update(const Eigen::SparseVector<double>& x, const unsigned long ind, const double lr, const bool fast)
+double HNode::update(const Eigen::SparseVector<double>& x, const unsigned long ind, const problem& prob, const unsigned long t)
 {
-    double prob {1.0};
+    double p {1.0};
     if (this->chn.size() > 1)
     {
         // forward step (Wtx)
@@ -122,23 +125,29 @@ double HNode::update(const Eigen::SparseVector<double>& x, const unsigned long i
         // apply softmax
         softmax(o);
         // calculate derivatives and backprop 
-        if (fast)
+        if (prob.fast)
         {
             // derivatives
             this->D.col(ind) = (o[ind]-1.0)*x;
-            // and backpropagate
-            this->W.col(ind) = this->W.col(ind) - lr*this->D.col(ind);
+            // and update
+            if (prob.optim == OptimType::SGD)
+                sgd(this->W, this->D, prob.lr);
+            else
+                adam(this->W, this->D, this->M, this->V, prob.lr, t, ind);
         }
         else
         {
             // derivatives
             dvscalm(D, o, ind, x);
-            // and backpropagate
-            this->W = this->W - lr*this->D;
+            // and update
+            if (prob.optim == OptimType::SGD)
+                sgd(this->W, this->D, prob.lr);
+            else
+                adam(this->W, this->D, this->M, this->V, prob.lr, t, -1);
         }    
-        prob = o[ind];
+        p = o[ind];
     }
-    return prob;
+    return p;
 }
 
 /* reinitialize W */
@@ -147,6 +156,10 @@ void HNode::reset()
     // reinitialize W
     if (this->chn.size() > 1)
         inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
+        // and D,M and V (M,V for Adam)
+        this->D.setZero();
+        this->M.setZero();
+        this->V.setZero();
 }
 
 /*
@@ -185,9 +198,11 @@ void HNode::addChildNode(std::vector<unsigned long> y, const problem &prob)
             // check if the current node has all its children
             if (tot_len_y_chn == this->y.size())
             {
-                // allocate weight and delta vectors 
+                // allocate W, D, M and V matrix (M and V for Adam)
                 this->W.resize(this->W.rows(), this->chn.size());
                 this->D.resize(this->D.rows(), this->chn.size());
+                this->M.resize(this->M.rows(), this->chn.size());
+                this->V.resize(this->V.rows(), this->chn.size());
                 // initialize W matrix
                 inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
             }
@@ -420,6 +435,9 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
         unsigned int e_cntr {0};
         int patience_counter {0};
         double prev_best_loss {std::numeric_limits<double>::max()};
+        unsigned long t {0}; // in case of Adam optimization
+        // reset W,D,M,V
+        this->reset();
         while (e_cntr < this->prob->ne)
         {
             // init. train/holdout loss and counter
@@ -432,6 +450,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
             {
                 if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
                 {
+                    t += 1;
                     double i_loss {0.0};
                     Eigen::SparseVector<double> x {this->prob->X[n]};
                     std::vector<unsigned long> y {this->prob->y[n]}; // our class 
@@ -449,7 +468,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                         }
                         if (ind != -1)
                         {
-                            double i_p {visit_node->update(x, static_cast<unsigned long>(ind), this->prob->lr, this->prob->fast)};
+                            double i_p {visit_node->update(x, static_cast<unsigned long>(ind), *this->prob, t)};
                             i_loss += std::log2((i_p<=EPS ? EPS : i_p));
                             visit_node = visit_node->chn[static_cast<unsigned long>(ind)];
                         }

@@ -22,12 +22,15 @@ void showHelp()
     
     args:
         -i, --input             Training/test data in LIBSVM format
-        -t, --type              Model type for training
-                0 := softmax with SGD
-                1 := hierarchical softmax with SGD and slow updates
-                2 := hierarchical softmax with SGD and fast updates
+        -t, --type              Probabilistic model type
+                0 := softmax
+                1 := hierarchical softmax with slow updates
+                2 := hierarchical softmax with fast updates
+        -o, --optim             Optimizer
+                0 := SGD
+                1 := Adam
         -s, --struct            Structure classification problem
-        -b, --bias              Bias for linear model 
+        -b, --bias              Bias for model 
               >=0 := bias included 
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
@@ -95,6 +98,21 @@ void parseArgs(int argc, char** args, ParseResult& presult)
             else
             {
                 std::cerr << "[error] Model type " << static_cast<std::string>(args[i+1]) << " not defined!\n";
+                showHelp();
+            }
+            ++i;
+        }
+        // check for -o, --optim
+        else if (static_cast<std::string>(args[i]).compare("-o") == 0 || static_cast<std::string>(args[i]).compare("--optim") == 0)
+        {
+            // process value for argument -t
+            if (static_cast<std::string>(args[i+1]).compare("0") == 0)
+                presult.optim = OptimType::SGD;
+            else if (static_cast<std::string>(args[i+1]).compare("1") == 0)
+                presult.optim = OptimType::ADAM;
+            else
+            {
+                std::cerr << "[error] Optimizer " << static_cast<std::string>(args[i+1]) << " not defined!\n";
                 showHelp();
             }
             ++i;

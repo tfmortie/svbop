@@ -20,7 +20,11 @@ class FlatModel : public Model
     private:
         Eigen::MatrixXd W;
         Eigen::MatrixXd D;
-        double update(const Eigen::SparseVector<double>& x, const unsigned long y, const double lr); /* forward & backward pass */
+        /* Adam */
+        Eigen::MatrixXd M; /* first moment matrix */
+        Eigen::MatrixXd V; /* second moment matrix */
+
+        double update(const Eigen::SparseVector<double>& x, const unsigned long y, const unsigned long t = 1); /* forward & backward pass */
         std::string getWeightVector();
         void setWeightVector(std::string w_str);
 

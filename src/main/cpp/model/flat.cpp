@@ -27,9 +27,12 @@
 /* constructor (training mode) */
 FlatModel::FlatModel(problem* prob) : Model(prob)
 {
-    // create W & D matrix
+    // create W, D, M and V matrix (M and V for Adam)
     this->W = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
     this->D = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
+    this->M = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
+    this->V = Eigen::MatrixXd::Zero(prob->d, prob->hstruct[0].size());
+
     // initialize W matrix
     inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
 }
@@ -48,11 +51,11 @@ FlatModel::FlatModel(const char* model_file_name, problem* prob) : Model(model_f
     Arguments:
         x: sparse feature vector
         y: class for which to calculate the probability (needed for loss)
-        lr: learning rate for SGD
+        t: time step in case of Adam optimization
     Return: 
         probability for class y (needed for loss)
 */
-double FlatModel::update(const Eigen::SparseVector<double>& x, const unsigned long y, const double lr)
+double FlatModel::update(const Eigen::SparseVector<double>& x, const unsigned long y, const unsigned long t)
 {
     // forward step (Wtx)
     Eigen::VectorXd o = this->W.transpose() * x;
@@ -60,8 +63,12 @@ double FlatModel::update(const Eigen::SparseVector<double>& x, const unsigned lo
     softmax(o);
     // set delta's 
     dvscalm(D, o, y-1, x);
-    // and backpropagate
-    this->W = this->W - lr*this->D;
+    // and update
+    if (this->prob->optim == OptimType::SGD)
+        sgd(this->W, this->D, this->prob->lr);
+    else
+        adam(this->W, this->D, this->M, this->V, this->prob->lr, t);
+
     return o[y-1];
 }
 
@@ -183,6 +190,10 @@ void FlatModel::reset()
 {
     // reinitialize W
     inituw(this->W, static_cast<double>(-1.0/this->W.rows()), static_cast<double>(1.0/this->W.rows()));
+    // and D,M and V (M,V for Adam)
+    this->D.setZero();
+    this->M.setZero();
+    this->V.setZero();
 }
 
 /* fit on data (in problem instance), while validating on instances with ind in ign_index (if applicable) */
@@ -195,6 +206,9 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
     unsigned int e_cntr {0};
     int patience_counter {0};
     double prev_best_loss {std::numeric_limits<double>::max()};
+    unsigned long t {0}; // in case of Adam optimization
+    // reset W,D,M,V
+    this->reset();
     while (e_cntr < this->prob->ne)
     {
         // init. train/holdout loss and counter
@@ -207,9 +221,10 @@ void FlatModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
         {
             if (std::find(ign_index.begin(), ign_index.end(), n) == ign_index.end())
             {
+                t += 1; 
                 Eigen::SparseVector<double> x {this->prob->X[n]};
                 unsigned long y {this->prob->y[n]}; // our class 
-                double i_p {this->update(x, y, this->prob->lr)};
+                double i_p {this->update(x, y, t)};
                 double i_loss {std::log2((i_p<=EPS ? EPS : i_p))};
                 e_loss_train += -i_loss;
                 n_cntr_train += 1;
@@ -454,9 +469,11 @@ void FlatModel::load(const char* model_file_name)
             }
             else
             {
-                // first create W & D matrix
+                // first create W, D, M and V matrix (M and V for Adam)
                 this->W = Eigen::MatrixXd::Random(this->prob->d, this->prob->hstruct[0].size());
                 this->D = Eigen::MatrixXd::Zero(this->prob->d, this->prob->hstruct[0].size());
+                this->M = Eigen::MatrixXd::Zero(this->prob->d, this->prob->hstruct[0].size());
+                this->V = Eigen::MatrixXd::Zero(this->prob->d, this->prob->hstruct[0].size());
                 this->setWeightVector(line);         
             } 
         }

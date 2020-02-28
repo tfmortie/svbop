@@ -20,6 +20,9 @@ class HNode
     public: 
         Eigen::MatrixXd W;
         Eigen::MatrixXd D;
+        /* Adam */
+        Eigen::MatrixXd M; /* first moment matrix */
+        Eigen::MatrixXd V; /* second moment matrix */
 
         HNode(const problem& prob); /* will be called on root */
         HNode(std::vector<unsigned long> y, const problem& prob);
@@ -28,7 +31,7 @@ class HNode
         std::vector<HNode*> chn;
         unsigned long predict(const Eigen::SparseVector<double>& x); /* predict child/branch */
         double predict(const Eigen::SparseVector<double>& x, const unsigned long ind); /* get branch probability of child node with index ind */
-        double update(const Eigen::SparseVector<double>& x, const unsigned long ind, const double lr, const bool fast = 0); /* forward & backward pass */
+        double update(const Eigen::SparseVector<double>& x, const unsigned long ind, const problem& prob, const unsigned long t = 1); /* forward & backward pass */
         void reset();
         void addChildNode(std::vector<unsigned long> y, const problem& p);     
         std::string getWeightVector();

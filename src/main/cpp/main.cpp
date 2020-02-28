@@ -3,9 +3,9 @@
 
     Main
 
-    TODO: early stopping
-    TODO: add adagrad/adam optimization
     TODO: add support for mini-batch training
+    TODO: add SGD with (nesterov) momentum
+    TODO: improve memory requirements for Adam (M, V)
     TODO: improve argument checking
     TODO: check for mem leaks
 */
