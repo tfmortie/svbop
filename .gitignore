@@ -13,3 +13,4 @@ src/main/cpp/svp
 src/main/cpp/logs
 src/main/cpp/scripts
 src/main/cpp/out
+*.csv
