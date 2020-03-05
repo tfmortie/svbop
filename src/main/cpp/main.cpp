@@ -13,6 +13,8 @@
 #include <vector>
 #include <chrono>
 #include <random>
+#include <fstream>
+#include <cstdio>
 #include "arg.h"
 #include "data.h"
 #include "model/model.h"
@@ -69,8 +71,26 @@ int main(int argc, char** argv)
             model = new FlatModel(parser_result.model_path.c_str(), &prob);
         else
             model = new HierModel(parser_result.model_path.c_str(), &prob);
-
         model->printInfo(0);
+        // check if predictions need to be saved or not, and prepare files in case of former
+        std::ofstream predfile_probmodel;
+        std::ofstream predfile_ubop;
+        std::ofstream predfile_rbop;
+        if (parser_result.pred_filename != "")
+        {
+            std::string pred_pm_filename  {"./" + parser_result.pred_filename + "_probmodel.csv"};
+            std::string pred_ubop_filename  {"./" + parser_result.pred_filename + "_ubop.csv"};
+            std::string pred_rbop_filename {"./" + parser_result.pred_filename + "_rbop.csv"};
+            std::remove(pred_pm_filename.c_str());
+            std::remove(pred_ubop_filename.c_str());
+            std::remove(pred_rbop_filename.c_str());
+            predfile_probmodel.open(pred_pm_filename, std::ofstream::out | std::ofstream::app); 
+            predfile_ubop.open(pred_ubop_filename, std::ofstream::out | std::ofstream::app); 
+            predfile_rbop.open(pred_rbop_filename, std::ofstream::out | std::ofstream::app); 
+            predfile_probmodel << "target,pred" << std::endl;
+            predfile_ubop << "target,pred" << std::endl;
+            predfile_rbop << "target,pred" << std::endl;
+        }
         // predictions (accuracy)
         std::cout << "PROB. MODEL\n";
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -84,6 +104,9 @@ int main(int argc, char** argv)
             unsigned long targ {prob.y[n]};
             acc += (pred==targ);
             n_cntr += 1.0;
+            // check if we need to save or not
+            if (parser_result.pred_filename != "")
+                predfile_probmodel << targ << ',' << pred << std::endl;
         }
         std::cout << "Acc.: " << (acc/n_cntr)*100.0 << "%\n";
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -104,6 +127,9 @@ int main(int argc, char** argv)
             acc += u(pred, targ, {UtilityType::RECALL});
             U += u(pred, targ, prob.utility);
             n_cntr += 1.0;
+            // check if we need to save or not
+            if (parser_result.pred_filename != "")
+                predfile_ubop << targ << ',' << vecToArr(pred) << std::endl;
         }
         std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
         std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
@@ -126,6 +152,9 @@ int main(int argc, char** argv)
             acc += u(pred, targ, {UtilityType::RECALL});
             U += u(pred, targ, prob.utility);
             n_cntr += 1.0;
+            // check if we need to save or not
+            if (parser_result.pred_filename != "")
+                predfile_rbop << targ << ',' << vecToArr(pred) << std::endl;
         }
         std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
         std::cout << "R: " << (U/n_cntr)*100.0 << "\n";

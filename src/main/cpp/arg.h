@@ -18,7 +18,7 @@ struct ParseResult {
     std::string file_path {""};
     std::string model_path {"./model.out"};
     std::string hierarchy_path {""};
-    std::string pred_path {"./model_preds.csv"};
+    std::string pred_filename {""};
     /* MODEL */
     ModelType model_type {ModelType::SOFTMAX};
     OptimType optim {OptimType::SGD};
