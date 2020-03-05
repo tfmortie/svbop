@@ -42,7 +42,7 @@ void showHelp()
         -u, --utility           Utility function (format: {precision|recall|fb|credal|exp|log|reject|genreject})
         -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
-        -f, --file              File name for saving predictions (if specified)  
+        -f, --file              File path and prefix for saving predictions (if specified)  
         -s, --seed              Seed for random engines         
     )help"; 
     exit(1);

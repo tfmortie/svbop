@@ -78,9 +78,9 @@ int main(int argc, char** argv)
         std::ofstream predfile_rbop;
         if (parser_result.pred_filename != "")
         {
-            std::string pred_pm_filename  {"./" + parser_result.pred_filename + "_probmodel.csv"};
-            std::string pred_ubop_filename  {"./" + parser_result.pred_filename + "_ubop.csv"};
-            std::string pred_rbop_filename {"./" + parser_result.pred_filename + "_rbop.csv"};
+            std::string pred_pm_filename  {parser_result.pred_filename + "_probmodel.csv"};
+            std::string pred_ubop_filename  {parser_result.pred_filename + "_ubop.csv"};
+            std::string pred_rbop_filename {parser_result.pred_filename + "_rbop.csv"};
             std::remove(pred_pm_filename.c_str());
             std::remove(pred_ubop_filename.c_str());
             std::remove(pred_rbop_filename.c_str());
