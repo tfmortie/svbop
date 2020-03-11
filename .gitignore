@@ -14,3 +14,4 @@ src/main/cpp/logs
 src/main/cpp/scripts
 src/main/cpp/out
 *.csv
+*.DS_Store
