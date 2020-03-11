@@ -524,7 +524,7 @@ void HierModel::fit(const std::vector<unsigned long>& ign_index, const bool verb
                 // also calculate average holdout loss
                 e_loss_holdout = e_loss_holdout/n_cntr_holdout;
                 // check if we have an improvement, compared to previous epoch loss
-                if (e_loss_holdout < prev_best_loss)
+                if (e_loss_holdout < (prev_best_loss-0.01))
                 {
                     prev_best_loss = e_loss_holdout;
                     patience_counter = 0; // reset patience counter
