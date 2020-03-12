@@ -131,8 +131,8 @@ int main(int argc, char** argv)
             if (parser_result.pred_filename != "")
                 predfile_ubop << targ << ',' << vecToArr(pred) << std::endl;
         }
-        std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
-        std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+        std::cout << "U: " << (U/n_cntr)*100.0 << "\n";
+        std::cout << "R: " << (acc/n_cntr)*100.0 << "\n";
         std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
         t2 = std::chrono::high_resolution_clock::now();
         time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
@@ -156,8 +156,8 @@ int main(int argc, char** argv)
             if (parser_result.pred_filename != "")
                 predfile_rbop << targ << ',' << vecToArr(pred) << std::endl;
         }
-        std::cout << "U: " << (acc/n_cntr)*100.0 << "\n";
-        std::cout << "R: " << (U/n_cntr)*100.0 << "\n";
+        std::cout << "U: " << (U/n_cntr)*100.0 << "\n";
+        std::cout << "R: " << (acc/n_cntr)*100.0 << "\n";
         std::cout << "|Y|: " << (setsize/n_cntr) << '\n';
         t2 = std::chrono::high_resolution_clock::now();
         time = std::chrono::duration_cast <std::chrono::milliseconds>(t2 - t1).count();
