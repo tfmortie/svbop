@@ -3,6 +3,7 @@
 
     Main
 
+    TODO: add L1/L2 regularization
     TODO: add SGD with (nesterov) momentum
     TODO: improve memory requirements for Adam (M, V)
     TODO: improve argument checking
@@ -87,9 +88,9 @@ int main(int argc, char** argv)
             predfile_probmodel.open(pred_pm_filename, std::ofstream::out | std::ofstream::app); 
             predfile_ubop.open(pred_ubop_filename, std::ofstream::out | std::ofstream::app); 
             predfile_rbop.open(pred_rbop_filename, std::ofstream::out | std::ofstream::app); 
-            predfile_probmodel << "target,pred" << std::endl;
-            predfile_ubop << "target,pred" << std::endl;
-            predfile_rbop << "target,pred" << std::endl;
+            predfile_probmodel << "target;pred" << std::endl;
+            predfile_ubop << "target;pred;prob" << std::endl;
+            predfile_rbop << "target;pred" << std::endl;
         }
         // predictions (accuracy)
         std::cout << "PROB. MODEL\n";
@@ -106,7 +107,7 @@ int main(int argc, char** argv)
             n_cntr += 1.0;
             // check if we need to save or not
             if (parser_result.pred_filename != "")
-                predfile_probmodel << targ << ',' << pred << std::endl;
+                predfile_probmodel << targ << ';' << pred << std::endl;
         }
         std::cout << "Acc.: " << (acc/n_cntr)*100.0 << "%\n";
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -122,6 +123,7 @@ int main(int argc, char** argv)
         for(unsigned long n=0; n<prob.n; ++n)
         {
             std::vector<unsigned long> pred {model->predict_ubop(prob.X[n])};
+            std::vector<double> prob {model->predict_proba(prob.X[n], prob.hstruct[0])};
             unsigned long targ {prob.y[n]};
             setsize += pred.size();
             acc += u(pred, targ, {UtilityType::RECALL});
@@ -129,7 +131,7 @@ int main(int argc, char** argv)
             n_cntr += 1.0;
             // check if we need to save or not
             if (parser_result.pred_filename != "")
-                predfile_ubop << targ << ',' << vecToArr(pred) << std::endl;
+                predfile_ubop << targ << ';' << vecToArr(pred) << ';' << vecToArr(prob) << std::endl;
         }
         std::cout << "U: " << (U/n_cntr)*100.0 << "\n";
         std::cout << "R: " << (acc/n_cntr)*100.0 << "\n";
@@ -154,7 +156,7 @@ int main(int argc, char** argv)
             n_cntr += 1.0;
             // check if we need to save or not
             if (parser_result.pred_filename != "")
-                predfile_rbop << targ << ',' << vecToArr(pred) << std::endl;
+                predfile_rbop << targ << ';' << vecToArr(pred) << std::endl;
         }
         std::cout << "U: " << (U/n_cntr)*100.0 << "\n";
         std::cout << "R: " << (acc/n_cntr)*100.0 << "\n";
