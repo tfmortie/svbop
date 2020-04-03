@@ -123,7 +123,6 @@ int main(int argc, char** argv)
         for(unsigned long n=0; n<prob.n; ++n)
         {
             std::vector<unsigned long> pred {model->predict_ubop(prob.X[n])};
-            std::vector<double> post {model->predict_proba(prob.X[n], prob.hstruct[0])};
             unsigned long targ {prob.y[n]};
             setsize += pred.size();
             acc += u(pred, targ, {UtilityType::RECALL});
@@ -131,7 +130,10 @@ int main(int argc, char** argv)
             n_cntr += 1.0;
             // check if we need to save or not
             if (parser_result.pred_filename != "")
+            {
+                std::vector<double> post {model->predict_proba(prob.X[n], prob.hstruct[0])};
                 predfile_ubop << targ << ';' << vecToArr(pred) << ';' << vecToArr(post) << std::endl;
+            }
         }
         std::cout << "U: " << (U/n_cntr)*100.0 << "\n";
         std::cout << "R: " << (acc/n_cntr)*100.0 << "\n";
