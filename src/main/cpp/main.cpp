@@ -3,7 +3,9 @@
 
     Main
 
-    TODO: add L1/L2 regularization
+    TODO: add adaptive learning rate 
+    TODO: add tolerance (tol) argument for early stopping 
+    TODO: add L1/L2 regularization (argument penalty with C argument for inverse reg. strength)
     TODO: add SGD with (nesterov) momentum
     TODO: improve memory requirements for Adam (M, V)
     TODO: improve argument checking
