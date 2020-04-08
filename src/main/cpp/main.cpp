@@ -3,6 +3,9 @@
 
     Main
 
+    TODO: add inductive conformal prediction 
+    TODO: add thresholding
+    TODO: add top-s
     TODO: add L1/L2 regularization
     TODO: add SGD with (nesterov) momentum
     TODO: improve memory requirements for Adam (M, V)
