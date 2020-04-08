@@ -37,9 +37,9 @@ svp <command> <args>
                 0 := softmax
                 1 := hierarchical softmax with slow updates
                 2 := hierarchical softmax with fast updates
-        -o, --optim             Optimizer
-                0 := SGD
-                1 := Adam
+        -o, --optim             Algorithm to use in the optimization problem
+                0 := SGD (stochastic gradient descent)
+                1 := Adam (adaptive moment estimation)
         -s, --struct            Structure classification problem
         -b, --bias              Bias for model 
               >=0 := bias included 

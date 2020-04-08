@@ -26,16 +26,16 @@ void showHelp()
                 0 := softmax
                 1 := hierarchical softmax with slow updates
                 2 := hierarchical softmax with fast updates
-        -o, --optim             Optimizer
-                0 := SGD
-                1 := Adam
+        -o, --optim             Algorithm to use in the optimization problem
+                0 := SGD (stochastic gradient descent)
+                1 := Adam (adaptive moment estimation)
         -s, --struct            Structure classification problem
         -b, --bias              Bias for model 
               >=0 := bias included 
               <0  := bias not included 
         -ne, --nepochs          Number of epochs
         -lr, --learnrate        Learning rate 
-        -bs,  --batchsize        Mini-batch size
+        -bs,  --batchsize       Mini-batch size
         -ho, --holdout          Holdout percentage for fitting
         -pa, --patience         Patience for early stopping
         -d, --dim               Number of features of dataset (bias not included)
@@ -43,7 +43,7 @@ void showHelp()
         -p, --param             Parameters for utility (format: valparam1 valparam2 ...)
         -m, --model             Model path for predicting/saving
         -f, --file              File path and prefix for saving predictions (if specified)  
-        -s, --seed              Seed for random engines         
+        -s, --seed              Seed for random engines          
     )help"; 
     exit(1);
 }
