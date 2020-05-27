@@ -3,10 +3,6 @@
 
     Main
 
-    TODO: add inductive conformal prediction 
-    TODO: add thresholding
-    TODO: add top-s
-    TODO: add L1/L2 regularization
     TODO: add adaptive learning rate 
     TODO: add tolerance (tol) argument for early stopping 
     TODO: add L1/L2 regularization (argument penalty with C argument for inverse reg. strength)
@@ -14,6 +10,11 @@
     TODO: improve memory requirements for Adam (M, V)
     TODO: improve argument checking
     TODO: check for mem leaks
+
+    LP
+    TODO: add inductive conformal prediction 
+    TODO: add thresholding
+    TODO: add top-s
 */
 
 #include <iostream>
