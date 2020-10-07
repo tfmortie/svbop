@@ -3,6 +3,7 @@
 
     Main
 
+    TODO: add LIBLINEAR support
     TODO: add adaptive learning rate 
     TODO: add tolerance (tol) argument for early stopping 
     TODO: add L1/L2 regularization (argument penalty with C argument for inverse reg. strength)
