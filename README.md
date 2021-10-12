@@ -2,6 +2,9 @@
 
 *Python and C++ implementation for [DAMI paper](https://doi.org/10.1007/s10618-021-00751-x) about efficient set-valued prediction in multi-class classification.*
 
+
+**IMPORTANT: under construction**
+
 ## Getting started
 
 Implementation is provided as a PyTorch (Python) extension and in C++.
