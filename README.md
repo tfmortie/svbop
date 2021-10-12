@@ -1,26 +1,22 @@
-# Set-Valued Prediction in Multi-Class Classification
+# Efficient Set-valued Prediction in Multi-class Classification
 
-*Python and C++ implementation for [arXiv paper](https://arxiv.org/abs/1906.08129) about set-valued prediction in multi-class classification.*
+*Python and C++ implementation for [DAMI paper](https://doi.org/10.1007/s10618-021-00751-x) about efficient set-valued prediction in multi-class classification.*
 
 ## Getting started
 
-Implementation is provided in C++ and Python.
+Implementation is provided as a PyTorch (Python) extension and in C++.
+
+### PyTorch (Python)
+
+* Soon to come
 
 ### C++
 
-* Implementation of the hierarchical model, together with UBOP and RBOP, can be found under **src/main/cpp/models/hierarchical.cpp**.
-* Implementation of the flat model, together with UBOP and RBOP, can be found under **src/main/cpp/models/flat.cpp**.
+Implementation of SVBOP-CH (flat classification) and RSVBOP-CH (hierarchical classification) can be found in **src/main/cpp/models/hierarchical.cpp**. 
 
 **Important**: make sure to build with flags `-O3 -mtune=native -march=native`, in order to have optimal runtime performance. This is necessary for the Eigen library, which is used for (efficient) mathematical operations.
 
-### Python
-
-* Implementation of the hierarchical model (HNet), together with UBOP and RBOP, can be found under **src/main/py/models/hclassifier.py**.
-* Implementation of the flat model (FNet), together with UBOP and RBOP, can be found under **src/main/py/models/fclassifier.py**.
-
 ## Running code 
-
-### C++
 
 Usage: 
 ```
@@ -56,26 +52,3 @@ svp <command> <args>
         -f, --file              File path and prefix for saving predictions (if specified)  
         -s, --seed              Seed for random engines       
 ```
-
-### Python
-
-#### Training HNet and FNet
-
-Example code for training HNet and FNet:
-```
-python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m hierarchical -s $( cat ./data/VOC2006/hierarchy_full.txt ) --gpu --vgg --no-ft 
-python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m flat --gpu --vgg --no-ft 
-```
-For HNet, you can also train on, e.g. k=10, random generated structure as follows:
-```
-python -u train.py -pcsv ./data/VOC2006/TRAINVAL.csv -m hierarchical -k 10 --learns --gpu --vgg --no-ft 
-```
-
-#### Testing HNet and FNet
-
-Example code for testing HNet and FNet:
-```
-python -u test.py -m flat -pm ./FLAT_MCC_TRAIN_0.2_True_100_0.001_32_5_False_True_VOC2006_VOC2006.pt -pcsv ./data/VOC2006/TEST.csv --gpu --vgg --store 
-python -u test.py -m hierarchical -pm ./HIERARCHICAL_MCC_TRAIN_0.2_True_100_0.001_32_5_False_True_VOC2006_19_False_0_VOC2006.pt -pcsv ./data/VOC2006/TEST.csv -s $( cat ./data/VOC2006/hierarchy_full.txt ) --gpu --vgg --store 
-```
-**Important**: after training, trained models are automatically saved to the working directory. 
