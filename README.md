@@ -1,21 +1,8 @@
-# Efficient Set-valued Prediction in Multi-class Classification
+# SVP
 
-*Python and C++ implementation for [DAMI paper](https://doi.org/10.1007/s10618-021-00751-x) about efficient set-valued prediction in multi-class classification.*
+## Description 
 
-
-**IMPORTANT: under construction**
-
-## Getting started
-
-Implementation is provided as a PyTorch (Python) extension and in C++.
-
-### PyTorch (Python)
-
-* Soon to come
-
-### C++
-
-Implementation of SVBOP-CH (flat classification) and RSVBOP-CH (hierarchical classification) can be found in **src/main/cpp/models/hierarchical.cpp**. 
+C++ implementation of SVBOP-CH (flat classification) and RSVBOP-CH (hierarchical classification) for [DAMI paper](https://doi.org/10.1007/s10618-021-00751-x) about efficient set-valued prediction in multi-class classification. Models can be found in **src/main/cpp/models/hierarchical.cpp**.
 
 **Important**: make sure to build with flags `-O3 -mtune=native -march=native`, in order to have optimal runtime performance. This is necessary for the Eigen library, which is used for (efficient) mathematical operations.
 
